@@ -238,4 +238,41 @@ check('claim edit: empty new text is rejected', function () {
   assert.ok(a.updateClaimText(r.claims[0], '   ').error);
 });
 
+// R6 live quote-only: dry flag, endpoint, parsing, fallback.
+check('live quote request is always dry: true, never dry: false, with the verified example', function () {
+  var near = require('./near-integration.js');
+  assert.strictEqual(near.ONECLICK_QUOTE_URL, 'https://1click.chaindefuser.com/v0/quote');
+  var req = near.buildLiveQuoteRequest(1762000000000);
+  assert.strictEqual(req.dry, true);
+  assert.notStrictEqual(req.dry, false);
+  assert.strictEqual(req.swapType, 'EXACT_INPUT');
+  assert.strictEqual(req.amount, '1000000');
+  assert.strictEqual(req.originAsset, 'nep141:arb-0xaf88d065e77c8cc2239327c5edb3a432268e5831.omft.near');
+  assert.strictEqual(req.destinationAsset, 'nep141:sol-5ce3bf3a31af18be40ba30f721101b4341690186.omft.near');
+  assert.strictEqual(req.recipient, 'thesis-agent-demo.near');
+  assert.strictEqual(req.recipientType, 'INTENTS');
+  assert.ok(!isNaN(Date.parse(req.deadline)), 'deadline must be a valid ISO date, got: ' + req.deadline);
+});
+check('live quote parser accepts a real dry response and labels it no-payment', function () {
+  var near = require('./near-integration.js');
+  var parsed = near.parseLiveQuote({ quote: { amountInFormatted: '1.0', amountOutFormatted: '0.999834', amountInUsd: '1.0', amountOutUsd: '0.999834', timeEstimate: 25 } });
+  assert.ok(parsed);
+  assert.strictEqual(parsed.dry, true);
+  assert.strictEqual(parsed.amountInFormatted, '1.0');
+  assert.strictEqual(parsed.amountOutFormatted, '0.999834');
+  assert.strictEqual(parsed.timeEstimate, 25);
+  assert.ok(parsed.note.indexOf('not a payment') !== -1);
+});
+check('live quote parser rejects a response carrying a deposit address', function () {
+  var near = require('./near-integration.js');
+  assert.strictEqual(near.parseLiveQuote({ depositAddress: '0xabc', quote: { amountInFormatted: '1.0', amountOutFormatted: '0.9' } }), null);
+  assert.strictEqual(near.parseLiveQuote({ quote: { depositAddress: '0xabc', amountInFormatted: '1.0', amountOutFormatted: '0.9' } }), null);
+});
+check('live quote parser rejects missing amounts and empty responses', function () {
+  var near = require('./near-integration.js');
+  assert.strictEqual(near.parseLiveQuote(null), null);
+  assert.strictEqual(near.parseLiveQuote({}), null);
+  assert.strictEqual(near.parseLiveQuote({ quote: { amountInFormatted: '1.0' } }), null);
+});
+
 console.log(passed + ' tests passed');

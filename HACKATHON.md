@@ -57,6 +57,16 @@ runs entirely as a static web page, with no backend, no paid API, and no keys.
 9. **Do X:** Press "Show the NEAR plug-in point (dry run)".
    **See Y:** A DRY RUN object, clearly labelled as not submitted, not
    signed, and not a transaction.
+10. **Do X:** Press "Get a live quote (dry run, no payment)".
+    **See Y:** Either a LIVE QUOTE (DRY RUN, NO PAYMENT) box with the
+    live in/out amounts actually received, or a LOCAL FALLBACK box
+    naming the failure and showing the local dry-run object instead.
+    No value is ever shown as live unless it was received from the API.
+11. **Do X:** Open the testnet escrow proof below on the explorer.
+    **See Y:** Real testnet transactions for a job created, evidence
+    recorded, passed, and released, plus a second job refunded on
+    walk-away. These are testnet transactions only, in testnet NEAR,
+    not a mainnet payment and not a prize payout.
 
 ## What is real, and what is not
 
@@ -66,14 +76,24 @@ runs entirely as a static web page, with no backend, no paid API, and no keys.
   format check only), the per-job agent loop as a labelled demo
   (demo quotes, do-vs-buy, one counter-offer, per-job receipts, cut),
   cap validation, local-only persistence, claim edit/delete, and a
-  real test suite (`npm test`, 32 tests). All local, no network call.
-- **Demo only:** the agent payment step (demo units only, no real payment)
-  and the NEAR integration in `near-integration.js` (a dry-run object,
-  never sent, no wallet, no signature, no transaction hash).
-- **Not claimed:** no live NEAR transaction, balance, payout, Intents quote,
-  or NEAR AI Cloud use. A real NEAR call would plug in at
-  `NearIntegration.buildNearIntentDryRun()` and would need the user's own
-  NEAR testnet account and approval first.
+  real test suite (`npm test`, 36 tests).
+- **Real, NEAR, quote-only:** a live NEAR Intents 1Click dry quote
+  (dry: true only, POST https://1click.chaindefuser.com/v0/quote, no
+  deposit address, no payment). Verified live on 1 Nov 2026: 1.0 USDC
+  in to about 0.9998 USDC out, time estimate 25, HTTP 201.
+- **Real, NEAR, testnet only:** the escrow contract in `contract/`
+  (Rust, near-sdk), deployed on testnet at thesis-agent-escrow2.testnet
+  (see "Phase 3 — testnet escrow proof" below). It holds a job price
+  in testnet NEAR, releases it only after the checker records an
+  evidence link and marks the job passed, and refunds it on walk-away.
+  Nothing here is mainnet, real money, or a prize payout.
+- **Demo only:** the agent payment step in the demo page itself
+  (demo units only, no real payment in the page, no wallet in the
+  page) and the dry-run object in `near-integration.js` (never sent,
+  no wallet, no signature, no transaction hash).
+- **Not claimed:** no mainnet transaction, balance, payout, or NEAR AI
+  Cloud use. The live quote is a price quote, not a payment; the
+  escrow proof is testnet, not mainnet.
 
 ## NEAR's role, stated concretely
 
@@ -81,9 +101,12 @@ In the full design, NEAR is the payment rail for the checker agent: one job
 per sub-claim, paid only after the checker records a named, dated, openable
 evidence link. That is the Agent Economy idea — an agent earns by completing
 a verifiable job for another agent or user. In this prototype that rail is
-shown as a dry-run design only, so judges can see the intended path without
-any faked on-chain result. Testnet-only projects are eligible per the
-official HACKATHON.md, and no integration is mandatory.
+now proven in two real, limited ways, and still labelled honestly
+everywhere: a dry-only live Intents quote in the demo page, and a
+testnet escrow contract with real testnet transactions (below). The
+demo page itself still has no wallet and moves no money. Testnet-only
+projects are eligible per the official HACKATHON.md, and no integration
+is mandatory.
 
 ## Repository, demo post, and submission status
 
@@ -111,6 +134,47 @@ official HACKATHON.md, and no integration is mandatory.
   a second submission.
 - **Hosted demo:** Live at https://thesis-agent.netlify.app/ — please
   keep this demo up to at least 25 Nov 2026.
+
+## Phase 3 — testnet escrow proof (testnet only, no mainnet, no real money)
+
+Contract source: `contract/` in this repository (Rust, near-sdk 5,
+`create_job`, `record_evidence`, `mark_passed`, `release`, `refund`,
+`get_job`). Contract account (testnet, throwaway, created by the agent
+for this demo only, never reused for anything else, never the mainnet
+prize payout account revival.user.intear.near): thesis-agent-escrow2.testnet.
+Checker account (testnet, also throwaway, created for this demo only):
+thesis-agent-checker1.testnet. Both accounts were funded with free
+testnet NEAR only. No private key or seed phrase is in this repository,
+and none is published here.
+
+Reproducible flow, 1 Nov 2026, all testnet:
+- Deploy + initialise contract: https://testnet.nearblocks.io/txns/guT4svwMB79VAgaMZQbM7hDwhMR9mJmavXWCUMAPVwr
+- Job 1 (release path): created, 0.01 testnet NEAR attached —
+  https://testnet.nearblocks.io/txns/GuTHMZfjsVHRkv9EDuWCQocR8H975SfpgVk5tNVmVyXb ;
+  evidence recorded by the checker ("sales-ledger-march-2026.pdf") —
+  https://testnet.nearblocks.io/txns/B167T1QemUsEA755MCTG9V1QWC5rqBmpJ8x7aN5Zyug8 ;
+  marked passed by the checker —
+  https://testnet.nearblocks.io/txns/4jEjdXjXpacyVEM82oAKywsqVhvBGLNXMz9vrrdqAKLi ;
+  released to the checker —
+  https://testnet.nearblocks.io/txns/GQ8Wq1MvMJWbzGrpmCYzHU1nAC17SmBcbff8bVfhPUYr .
+  Final on-chain state for job-1: passed true, status "released".
+- Job 2 (walk-away path): created, 0.01 testnet NEAR attached —
+  https://testnet.nearblocks.io/txns/jvcSJc69FEat5jf6SMf1DSV7Ds13b3GuE4egengkyhF ;
+  mark_passed with NO evidence was attempted by the checker and
+  FAILED on chain (the contract enforces evidence before passing);
+  refunded to the payer —
+  https://testnet.nearblocks.io/txns/EfvCGu2oDJzKtWa3PvwTTwFAtWDm71d38St86PdhL5ph .
+  Final on-chain state for job-2: passed false, status "refunded".
+
+Key policy for this contract: the two testnet accounts above are
+throwaway demo accounts, testnet only, holding only free testnet NEAR.
+Their keys are held only in the deployment tool's local credential
+store, are never committed to this repository, and are never shared
+in chat. The mainnet prize payout account (revival.user.intear.near)
+was not used for any test, deployment, or spending in this phase.
+Reproducing this flow needs only a fresh testnet account and the
+contract source in `contract/`; it needs no mainnet account, no real
+money, and no key from this repository.
 
 ## Remaining steps (verification only — submission is already saved)
 
