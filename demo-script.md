@@ -1,7 +1,9 @@
-# Demo video script outline — Thesis Agent (under 3 minutes, NOT recorded yet)
+# Demo video script outline — Thesis Agent (under 3 minutes)
 
-Do not record or publish this video until the builder approves the exact
-script and the demo post text. This outline follows one arc only:
+Phase 0 note (1 Nov 2026): a demonstration video following this script
+was prepared for the builder's private review only. It has NOT been
+published to YouTube, X, or any other platform, and must not be published
+without the builder's separate approval. This outline follows one arc only:
 problem in one sentence, what the user does, what the agent does, what
 the result is.
 

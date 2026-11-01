@@ -67,31 +67,43 @@ shown as a dry-run design only, so judges can see the intended path without
 any faked on-chain result. Testnet-only projects are eligible per the
 official HACKATHON.md, and no integration is mandatory.
 
-## Repository and demo post
+## Repository, demo post, and submission status
 
-- **Repository:** https://github.com/Alamutu1/near-thesis-tested (public)
-- **Demo post on X:** Not yet published. The builder must approve the exact
-  post text first. When published, it must say the project was built at
-  NEAR HACKATHON, tag @NEARProtocol and #NEARHackathon, and include the
-  demo video or screenshots.
-- **Demo video:** Not yet recorded. See `demo-script.md` for the outline
-  (under 3 minutes, one complete moment: type a thesis, see the plan,
-  mark one part, download the plan).
+- **Repository:** https://github.com/Alamutu1/near-thesis-tested (public;
+  must stay public through judging)
+- **Project:** Thesis Agent. **Team lead:** Cryptoearn Gives.
+  **Team size:** 1 (solo). **Track:** Agent Economy (`agents`).
+  **Contact email:** cryptoearngives@gmail.com.
+  **NEAR account for any prize payout:** revival.user.intear.near
+  (spelling as provided by the builder; the builder's own account, never
+  invented by the agent).
+- **Demo post on X:** **Published 1 Nov 2026** as a 4-post thread by
+  @Cryptogiives, with 3 screenshots of the working demo attached:
+  https://x.com/Cryptogiives/status/2116831337407779257
+  It says the project was built at NEAR HACKATHON, tags @NEARProtocol
+  and #NEARHackathon, and links this repository.
+- **Demo video:** Prepared for private review in Phase 0 (see
+  `demo-video/` in the working copy; not published). See `demo-script.md`
+  for the outline (under 3 minutes, one complete moment: type a thesis,
+  see the plan, mark one part, download the plan). No video has been
+  published on the builder's behalf.
+- **Final submission:** **Saved via the official API on 1 Nov 2026
+  (HTTP 201).** The submission form itself cannot be edited after
+  sending, and this repository cannot be submitted again. Do not create
+  a second submission.
+- **Hosted demo:** Live at https://thesis-agent.netlify.app/ — please
+  keep this demo up to at least 25 Nov 2026.
 
-## Remaining steps before submission (all need the builder)
+## Remaining steps (verification only — submission is already saved)
 
-1. Builder approves the exact X demo post text, publishes it, and shares
-   the post link.
-2. Builder provides, for the submission form: team lead name, contact email,
-   team size (1), track (`agents`), and a NEAR account address for any
-   prize payout (created by the builder in their own wallet; never invented
-   by the agent).
-3. Builder confirms the 20–2,000 character project description and the
-   consent notice, verbatim: "I agree that the organizers may use these
-   details to review our submission and contact us about this hackathon."
-4. Only then is the submission sent, once, before 14 Nov 2026 23:59 UTC.
-   A submission cannot be edited after sending, and this repository must
-   stay public through judging.
+1. Keep this repository public through judging (results by 18 Nov 2026).
+2. Keep the hosted demo at https://thesis-agent.netlify.app/ up to at
+   least 25 Nov 2026.
+3. Do not edit the submitted form (it cannot be edited), do not create
+   a second submission, and do not change the submitted track, project
+   name, or demo URL in a new submission.
+4. Any organiser contact goes to the submitted email,
+   cryptoearngives@gmail.com.
 
 ## Licence
 

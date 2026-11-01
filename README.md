@@ -143,17 +143,27 @@ console.log(a.planAsMarkdown(r).includes('Pass only if'));
 Expected output: a claim count of 2 or more, `true`, `empty input rejected`,
 `true`.
 
-## Submission status — read before judging or submitting
+## Submission status — read before judging
 
 - Repository: public, at https://github.com/Alamutu1/near-thesis-tested
-  (pushed after the build; see the repository's commit history).
-- Demo post on X: **not yet published**. It needs the builder's separate
-  approval for the exact post text, and it is not part of this push.
-- Final submission form: **not yet submitted**. It needs the team lead's
-  name, contact email, team size, preferred track, and a NEAR account for
-  any prize payout. Those are the builder's own details and were not filled
-  in by the agent. See `HACKATHON.md` for the exact remaining steps.
+  (see the repository's commit history). The repository must stay public
+  through judging.
+- Project: Thesis Agent. Team lead: Cryptoearn Gives. Team size: 1 (solo).
+  Track: Agent Economy (`agents`). Contact email: cryptoearngives@gmail.com.
+  NEAR account for any prize payout: revival.user.intear.near (spelling as
+  provided by the builder; this is the builder's own account, never
+  invented by the agent).
+- Demo post on X: **published 1 Nov 2026** as a 4-post thread by
+  @Cryptogiives, with 3 screenshots of the working demo attached:
+  https://x.com/Cryptogiives/status/2116831337407779257
+- Final submission: **saved via the official API on 1 Nov 2026
+  (HTTP 201)**. The submission form itself cannot be edited after sending,
+  and this repository cannot be submitted again. Updates to the repository
+  before the deadline do not change the submitted form.
+- Hosted demo: live at https://thesis-agent.netlify.app/ — please keep
+  this demo up to at least 25 Nov 2026.
 - Deadline: development and submission end 14 Nov 2026 23:59 UTC.
+  Judging: 16–18 Nov 2026; results by 18 Nov 2026.
 
 ## Attribution
 
