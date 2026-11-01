@@ -1,0 +1,1 @@
+{"description":"Thesis Agent: break a thesis into checkable parts, with an evidence-quality gate. NEAR HACKATHON, Agent Economy track. No backend, no network calls, no keys.","license":"MIT","name":"thesis-agent","scripts":{"test":"node test.js"},"version":"1.1.0"}

@@ -32,9 +32,19 @@ stated pass rule. Readers are left to argue about the whole sentence at once.
    cause become separate, testable parts, plus a falsification check.
 3. For each part it shows: how to measure it, what evidence it needs, and a
    pass rule ("Pass only if the evidence is named, dated, and openable").
+   Where the thesis itself gives numbers, dates, or a group, those details
+   are carried into the measure and evidence lines instead of a canned
+   sentence.
 4. You add an evidence note per part and set its status yourself:
    Not yet tested, Supported by evidence, Not supported by evidence, or
-   Inconclusive. A progress bar tracks how many parts you have marked.
+   Inconclusive. A decided status (Supported or Not supported) is blocked
+   until the note passes a local format check: it must name a source, give
+   a date (a year, or a month and year), and give an openable reference
+   (a link or a document name). If it fails, the missing element is shown
+   by name and the part stays Not yet tested. Inconclusive means the
+   evidence is insufficient and does not count as decided. Progress counts
+   only parts decided with a passing evidence note. The check is format
+   only: it does not prove the evidence itself is true.
 5. You set a spending cap (demo units only). The agent job list — one
    checker job per sub-claim — is blocked above that cap, which is the
    spending guardrail for an agent with a wallet.
@@ -77,8 +87,8 @@ No build step, no server, no install, no keys, no account needed.
   **See Y:** A test plan for "Small businesses lose money because they do not
   track who owes them", broken into checkable parts, all starting as
   "Not yet tested".
-- **Do X:** Type an evidence note on one part and change its status.
-  **See Y:** That part's status text changes, and the progress bar moves.
+- **Do X:** Type an evidence note on one part that names a source, gives a date, and gives a link or document name, then change its status.
+  **See Y:** That part's status text changes, and the progress bar moves. Try a note with a missing element first, and see it blocked with the missing element named.
 - **Do X:** Press "Copy test plan as text" or "Download test plan (.md)".
   **See Y:** The full plan, including your notes and statuses.
 - **Do X:** Change the spending cap to 10, with a 3-part plan on screen.
@@ -93,7 +103,12 @@ No build step, no server, no install, no keys, no account needed.
 - The thesis breakdown, classification, test-plan generation, evidence notes,
   status marking, progress tracking, copy, and Markdown download. All of it
   runs locally in the browser with no backend and no paid API.
-- The code in `app.js` is deterministic and testable with Node (see below).
+- The evidence format gate: a decided status requires a note that names a
+  source, gives a date, and gives an openable reference, with the missing
+  element shown by name when it fails. This is a format check only, not
+  proof that the evidence is true.
+- The code in `app.js` is deterministic and testable with Node
+  (`npm test`, see below).
 
 **Demo only, clearly labelled in the app and in code:**
 
@@ -122,26 +137,48 @@ No build step, no server, no install, no keys, no account needed.
 - `index.html` — the demo page (open this file).
 - `app.js` — the breakdown and test-plan logic, no network calls.
 - `near-integration.js` — the labelled dry-run NEAR plug-in point.
+- `package.json` — `npm test` runs the test suite, no dependencies.
+- `test.js` — the test suite: README example, breakdown failure cases,
+  evidence gate, and cap logic.
 - `HACKATHON.md` — this project's HACKATHON.md, following the official
   guidance: what was built, how to try it, and what is still needed.
-- `demo-script.md` — outline for a short demo video (not recorded yet).
+- `demo-script.md` — outline for a short demo video.
 - `LICENSE` — MIT.
+
+## Architecture
+
+Text diagram of the current agent loop, as built:
+
+```
+thesis -> break into checkable parts -> measure + evidence plan per part
+  -> user adds an evidence note -> local evidence format check
+  -> user marks a part decided (only with a passing note) or Inconclusive
+  -> progress counts decided-with-evidence parts -> Markdown plan exported
+  -> spending cap (demo units) -> NEAR plug-in point (dry run only)
+```
+
+Negotiation and per-job receipts are Phase 2 work, not yet built, and are
+not claimed here. A real NEAR quote (dry, quote-only) and a testnet escrow
+contract are Phase 3 work, subject to a separate review, and are not built
+here.
+
+Key policy, as currently true: there is no wallet, no key, and no secret
+in this repository or in the demo. The NEAR integration is a dry-run
+object built locally and never sent. A real integration would need the
+user's own NEAR testnet account and explicit approval first, and no key
+would ever be stored by this demo.
 
 ## Tests (local, no network)
 
 ```sh
-node -e "
-const a = require('./app.js');
-const r = a.analyseThesis('Small businesses lose money because they do not track who owes them.');
-console.log(r.claims.length, 'claims');
-console.log(r.claims.every(c => c.status === 'Not yet tested'));
-console.log(a.analyseThesis('').error ? 'empty input rejected' : 'FAIL');
-console.log(a.planAsMarkdown(r).includes('Pass only if'));
-"
+npm test
 ```
 
-Expected output: a claim count of 2 or more, `true`, `empty input rejected`,
-`true`.
+Expected output: all 20 tests pass, including the README example with
+exactly 3 claims, the breakdown failure cases (short fragments, leading
+connectors, leading and multiple "because" clauses, the 5-claim cap
+warning, and classification cases), the evidence gate (pass, each missing
+element, and Inconclusive/progress semantics), and the cap logic.
 
 ## Submission status — read before judging
 

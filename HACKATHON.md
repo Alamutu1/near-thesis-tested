@@ -35,8 +35,8 @@ runs entirely as a static web page, with no backend, no paid API, and no keys.
 3. **Do X:** Press "Try example 1", then "Break it down".
    **See Y:** A test plan for "Small businesses lose money because they do
    not track who owes them", with each part starting as "Not yet tested".
-4. **Do X:** Add an evidence note to one part and change its status.
-   **See Y:** The status text changes and the progress bar moves.
+4. **Do X:** Add an evidence note to one part that names a source, gives a date, and gives a link or document name, then change its status.
+   **See Y:** The status text changes and the progress bar moves. A note missing an element is blocked, with the missing element named, and the part stays Not yet tested. Progress counts only parts decided with a passing evidence note; Inconclusive does not count as decided.
 5. **Do X:** Press "Copy test plan as text" or "Download test plan (.md)".
    **See Y:** The full plan, including your notes and statuses.
 6. **Do X:** Change the spending cap to 10, with a 3-part plan on screen.
@@ -48,7 +48,9 @@ runs entirely as a static web page, with no backend, no paid API, and no keys.
 ## What is real, and what is not
 
 - **Real:** thesis breakdown, classification, test-plan generation, evidence
-  notes, status marking, progress, copy, and Markdown download. All local.
+  notes, status marking, progress, copy, and Markdown download, plus the
+  local evidence format gate (named source, date, openable reference,
+  format check only) and a real test suite (`npm test`). All local.
 - **Demo only:** the agent payment step (demo units only, no real payment)
   and the NEAR integration in `near-integration.js` (a dry-run object,
   never sent, no wallet, no signature, no transaction hash).
