@@ -46,9 +46,28 @@ stated pass rule. Readers are left to argue about the whole sentence at once.
    only parts decided with a passing evidence note. The check is format
    only: it does not prove the evidence itself is true.
 5. You set a spending cap (demo units only). The agent job list — one
-   checker job per sub-claim — is blocked above that cap, which is the
-   spending guardrail for an agent with a wallet.
+   checker job per sub-claim — is shown per job, with a demo quote, a
+   do-vs-buy line, exactly one counter-offer when the demo quote is
+   above the 10-unit plan, and whether the job is allowed, blocked by
+   the cap, walked away from, or cut by you. Demo quotes are fixed
+   illustrative values in job order (8, 12, 10, 18, 9 demo units), not
+   prices from any real agent, and demo checkers are named demo
+   checkers, not accounts. A counter-offer at 10 demo units is
+   accepted in this demo only when the quote is at most 4 units over
+   plan; above that the demo agent walks away and does it itself.
+   Jobs above the cap stay blocked, which is the spending guardrail
+   for an agent with a wallet.
 6. You can copy the test plan as text or download it as Markdown.
+   The download now includes a per-job receipt for every job: demo
+   checker, do-vs-buy decision, planned and quoted demo units,
+   counter-offer and result, final demo price, cap status, demo units
+   spent, and the evidence status and check result for that claim.
+7. Your plan is saved in this browser only (localStorage, no server),
+   so a refresh restores it, including edits and cuts. Claims can be
+   edited (which resets their status and evidence note, so the gate
+   cannot be bypassed by editing) or deleted. A cap must be a whole
+   number, 0 or more; an invalid cap shows an error and keeps the
+   previous cap, never silently replacing it.
 
 ## Why this track, and why NEAR
 
@@ -92,7 +111,19 @@ No build step, no server, no install, no keys, no account needed.
 - **Do X:** Press "Copy test plan as text" or "Download test plan (.md)".
   **See Y:** The full plan, including your notes and statuses.
 - **Do X:** Change the spending cap to 10, with a 3-part plan on screen.
-  **See Y:** A "Blocked by your cap" note, showing only 1 of 3 jobs fits.
+  **See Y:** A "Blocked by your cap" note, showing only 1 of 3 jobs fits
+  (job 1 at 8 demo units; jobs 2 and 3 do not fit).
+- **Do X:** In Step 3, read the per-job list for example 1.
+  **See Y:** Job 1 buys at 8 demo units; job 2 counters once at 10 and
+  is accepted; job 3 buys at 10. At cap 30 the total spent is 28.
+  Cut job 2 and see the total fall to 18, with job 2 marked cut.
+- **Do X:** Type "abc" as the spending cap.
+  **See Y:** An error saying to enter a whole number, and the previous
+  cap is kept; the job list does not silently change.
+- **Do X:** Edit a claim, then refresh the page.
+  **See Y:** The edited claim (or a deleted part's absence) is
+  restored from this browser only, and an edited claim starts again
+  as "Not yet tested" with no evidence note.
 - **Do X:** Press "Show the NEAR plug-in point (dry run)".
   **See Y:** A clearly labelled DRY RUN object. No transaction is sent.
 
@@ -109,11 +140,19 @@ No build step, no server, no install, no keys, no account needed.
   proof that the evidence is true.
 - The code in `app.js` is deterministic and testable with Node
   (`npm test`, see below).
+- The agent loop as a labelled demo: per-job list, do-vs-buy lines,
+  one counter-offer per job, per-job receipts in the Markdown export,
+  cap validation, local-only persistence, and claim edit/delete, all
+  covered by the test suite.
 
 **Demo only, clearly labelled in the app and in code:**
 
 - The "agent payment" step. The app shows a job list and a budget in
   **demo units only**. It does not pay anyone, in NEAR or in any currency.
+  Demo quotes are fixed illustrative values, not prices from any real
+  agent, and demo checkers are named demo checkers, not accounts.
+  A counter-offer accepted in the demo is not a real negotiation, and
+  a receipt in the download is a demo receipt, not proof of a purchase.
 - The NEAR integration in `near-integration.js`. It builds a dry-run,
   intent-shaped object locally and **never sends it anywhere**. It opens no
   wallet, signs nothing, and produces no transaction hash, balance, or result.
@@ -139,7 +178,8 @@ No build step, no server, no install, no keys, no account needed.
 - `near-integration.js` — the labelled dry-run NEAR plug-in point.
 - `package.json` — `npm test` runs the test suite, no dependencies.
 - `test.js` — the test suite: README example, breakdown failure cases,
-  evidence gate, and cap logic.
+  evidence gate, cap logic, agent jobs (quotes, counter-offer,
+  do-vs-buy, cut, receipts), cap validation, and claim editing.
 - `HACKATHON.md` — this project's HACKATHON.md, following the official
   guidance: what was built, how to try it, and what is still needed.
 - `demo-script.md` — outline for a short demo video.
@@ -153,12 +193,16 @@ Text diagram of the current agent loop, as built:
 thesis -> break into checkable parts -> measure + evidence plan per part
   -> user adds an evidence note -> local evidence format check
   -> user marks a part decided (only with a passing note) or Inconclusive
-  -> progress counts decided-with-evidence parts -> Markdown plan exported
-  -> spending cap (demo units) -> NEAR plug-in point (dry run only)
+  -> progress counts decided-with-evidence parts
+  -> per-job agent loop (DEMO only): demo quote -> do-vs-buy line
+     -> one counter-offer when above plan -> allowed / blocked / cut
+     -> per-job receipt in the Markdown export
+  -> spending cap (demo units, validated) -> NEAR plug-in point (dry run only)
+  -> plan saved in this browser only (localStorage, no server)
 ```
 
-Negotiation and per-job receipts are Phase 2 work, not yet built, and are
-not claimed here. A real NEAR quote (dry, quote-only) and a testnet escrow
+The agent loop above is a labelled demo, not a live payment, hire, or
+quote. A real NEAR quote (dry, quote-only) and a testnet escrow
 contract are Phase 3 work, subject to a separate review, and are not built
 here.
 
@@ -174,11 +218,14 @@ would ever be stored by this demo.
 npm test
 ```
 
-Expected output: all 20 tests pass, including the README example with
+Expected output: all 32 tests pass, including the README example with
 exactly 3 claims, the breakdown failure cases (short fragments, leading
 connectors, leading and multiple "because" clauses, the 5-claim cap
 warning, and classification cases), the evidence gate (pass, each missing
-element, and Inconclusive/progress semantics), and the cap logic.
+element, and Inconclusive/progress semantics), the cap logic, the agent
+jobs (demo quotes in job order, one counter-offer accepted at most 4
+over plan and rejected above that, do-vs-buy, allowed/blocked/cut, and
+per-job receipts in the export), cap validation, and claim editing.
 
 ## Submission status — read before judging
 

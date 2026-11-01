@@ -129,4 +129,113 @@ check('cap arithmetic: 3 jobs at 10 units, cap 10 fits 1 job', function () {
   assert.strictEqual(Math.floor(10 / 10), 1);
 });
 
+// R5 agent loop: per-job list, quotes, do-vs-buy, one counter-offer.
+check('agent jobs: example 1 has one job per claim with demo quotes in job order', function () {
+  var r = a.analyseThesis('Small businesses lose money because they do not track who owes them.');
+  assert.strictEqual(r.jobs.length, 3);
+  assert.deepStrictEqual(r.jobs.map(function (j) { return j.quote; }), [8, 12, 10]);
+  assert.strictEqual(r.jobs[0].checker, 'Demo Checker A');
+  assert.strictEqual(r.jobs[1].checker, 'Demo Checker B');
+  assert.ok(r.jobs.every(function (j) { return j.planned === 10; }));
+});
+check('agent jobs: quote at or below plan buys with no counter-offer', function () {
+  var r = a.analyseThesis('Small businesses lose money because they do not track who owes them.');
+  assert.strictEqual(r.jobs[0].decision, 'Buy');
+  assert.strictEqual(r.jobs[0].counter, null);
+  assert.strictEqual(r.jobs[0].finalPrice, 8);
+  assert.strictEqual(r.jobs[0].doVsBuy, 'Buy');
+});
+check('agent jobs: exactly one counter-offer, accepted when quote is at most 4 over plan', function () {
+  var r = a.analyseThesis('Small businesses lose money because they do not track who owes them.');
+  assert.strictEqual(r.jobs[1].counter.count, 1);
+  assert.strictEqual(r.jobs[1].counter.offer, 10);
+  assert.strictEqual(r.jobs[1].counter.accepted, true);
+  assert.strictEqual(r.jobs[1].decision, 'Buy after one counter-offer');
+  assert.strictEqual(r.jobs[1].finalPrice, 10);
+});
+check('agent jobs: counter-offer rejected above 14, agent walks away and does it itself', function () {
+  var jobs = a.buildAgentJobs([
+    { id: 1, role: 'Main claim', kind: 'General claim' },
+    { id: 2, role: 'Sub-claim 1', kind: 'General claim' },
+    { id: 3, role: 'Sub-claim 2', kind: 'General claim' },
+    { id: 4, role: 'Sub-claim 3', kind: 'General claim' }
+  ], 100).jobs;
+  assert.strictEqual(jobs[3].quote, 18);
+  assert.strictEqual(jobs[3].counter.count, 1);
+  assert.strictEqual(jobs[3].counter.accepted, false);
+  assert.strictEqual(jobs[3].decision, 'Do it yourself');
+  assert.strictEqual(jobs[3].finalPrice, 0);
+  assert.strictEqual(jobs[3].spent, 0);
+});
+check('agent jobs: cap 10 allows only the first job of example 1, rest blocked', function () {
+  var jobs = a.buildAgentJobs(a.analyseThesis('Small businesses lose money because they do not track who owes them.').claims, 10);
+  assert.strictEqual(jobs.jobs[0].capStatus, 'Allowed');
+  assert.strictEqual(jobs.jobs[0].spent, 8);
+  assert.strictEqual(jobs.jobs[1].capStatus, 'Blocked by cap');
+  assert.strictEqual(jobs.jobs[2].capStatus, 'Blocked by cap');
+  assert.strictEqual(jobs.totalSpent, 8);
+});
+check('agent jobs: cap 30 allows all example 1 jobs, spent is 8 + 10 + 10', function () {
+  var jobs = a.buildAgentJobs(a.analyseThesis('Small businesses lose money because they do not track who owes them.').claims, 30);
+  assert.strictEqual(jobs.totalSpent, 28);
+  assert.ok(jobs.jobs.every(function (j) { return j.capStatus === 'Allowed'; }));
+});
+check('agent jobs: a cut job spends nothing and does not consume cap', function () {
+  var r = a.analyseThesis('Small businesses lose money because they do not track who owes them.');
+  r.jobs[0].cut = true;
+  var jobs = a.recomputeJobs(r.jobs, 10);
+  assert.strictEqual(jobs.jobs[0].capStatus, 'Cut by user');
+  assert.strictEqual(jobs.jobs[0].spent, 0);
+  assert.strictEqual(jobs.jobs[1].capStatus, 'Allowed');
+  assert.strictEqual(jobs.totalSpent, 10);
+});
+check('agent jobs: receipts in Markdown export carry quote, counter, decision, cap, and evidence check', function () {
+  var r = a.analyseThesis('Small businesses lose money because they do not track who owes them.');
+  r.claims[0].note = 'Sales ledger (sales-ledger-march-2026.pdf), March 2026';
+  r.claims[0].evidenceCheck = a.checkEvidence(r.claims[0].note);
+  r.claims[0].status = 'Supported by evidence';
+  var md = a.planAsMarkdown(r);
+  assert.ok(md.indexOf('DEMO ONLY') !== -1);
+  assert.ok(md.indexOf('Receipt — Job 1') !== -1);
+  assert.ok(md.indexOf('Demo quote: 8 demo units') !== -1);
+  assert.ok(md.indexOf('one counter-offer at 10 demo units, accepted') !== -1);
+  assert.ok(md.indexOf('Do vs buy: Buy after one counter-offer') !== -1);
+  assert.ok(md.indexOf('not a real hire, not a real quote') !== -1);
+  assert.ok(md.indexOf('Evidence status: Supported by evidence') !== -1);
+});
+check('agent jobs: dry-run budget totals the demo quotes, not the flat 10-per-job total', function () {
+  var near = require('./near-integration.js');
+  var r = a.analyseThesis('Sales rose, costs fell, customers returned, staff stayed in 2026 for small traders.');
+  assert.strictEqual(r.claims.length, 4);
+  var dry = near.buildNearIntentDryRun(r);
+  assert.strictEqual(dry.agentJob.budgetDemoUnits, 48);
+});
+
+// R9 safe subset: cap validation, claim edit.
+check('cap validation: whole numbers 0 or more pass, anything else fails with a message', function () {
+  assert.strictEqual(a.parseCap('30').valid, true);
+  assert.strictEqual(a.parseCap('30').cap, 30);
+  assert.strictEqual(a.parseCap('0').valid, true);
+  assert.strictEqual(a.parseCap('').valid, false);
+  assert.strictEqual(a.parseCap('-5').valid, false);
+  assert.strictEqual(a.parseCap('10.5').valid, false);
+  assert.strictEqual(a.parseCap('abc').valid, false);
+  assert.ok(a.parseCap('abc').message.indexOf('previous cap') !== -1);
+});
+check('claim edit: new text reclassifies and resets status and note', function () {
+  var r = a.analyseThesis('Small businesses lose money because they do not track who owes them.');
+  var claim = r.claims[0];
+  claim.note = 'Sales ledger (sales-ledger-march-2026.pdf), March 2026';
+  claim.status = 'Supported by evidence';
+  a.updateClaimText(claim, 'Cross-chain payments will be cheaper than single-chain payments for small traders.');
+  assert.strictEqual(claim.kind, 'Comparison');
+  assert.strictEqual(claim.status, 'Not yet tested');
+  assert.strictEqual(claim.note, '');
+  assert.strictEqual(claim.evidenceCheck, null);
+});
+check('claim edit: empty new text is rejected', function () {
+  var r = a.analyseThesis('Small businesses lose money because they do not track who owes them.');
+  assert.ok(a.updateClaimText(r.claims[0], '   ').error);
+});
+
 console.log(passed + ' tests passed');
