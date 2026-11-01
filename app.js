@@ -209,6 +209,11 @@
       claims: claims,
       summary: 'This thesis breaks into ' + claims.length + ' checkable parts. None of them is marked true or false yet. Add evidence for each part, then mark it yourself.'
     };
+    // Default cap 30 demo units; the page rebuilds jobs whenever the
+    // user changes the cap or cuts a job.
+    result.cap = 30;
+    result.jobs = buildAgentJobs(claims, 30).jobs;
+    result.agentTotals = recomputeJobs(result.jobs, 30);
     if (split.capped) {
       result.capped = true;
       result.totalFound = split.totalFound;
@@ -218,16 +223,144 @@
     return result;
   }
 
+  // R5 agent loop, DEMO ONLY. Demo quotes are fixed illustrative
+  // values assigned in job order, not prices from any real agent, and
+  // the checkers are named demo checkers, not accounts. No live
+  // payment, no hire, no real quote, no wallet, no key.
+  var DEMO_QUOTES = [8, 12, 10, 18, 9];
+  var DEMO_CHECKERS = ['Demo Checker A', 'Demo Checker B', 'Demo Checker C'];
+  var DEMO_PLANNED = 10;
+
+  function demoQuoteFor(index) { return DEMO_QUOTES[index % DEMO_QUOTES.length]; }
+  function demoCheckerFor(index) { return DEMO_CHECKERS[index % DEMO_CHECKERS.length]; }
+
+  // Cap input validation (R9): a whole number, 0 or more. Anything
+  // else is invalid and must be shown to the user, never silently
+  // replaced with a fallback cap.
+  function parseCap(raw) {
+    var t = clean(raw);
+    if (!/^\d+$/.test(t)) {
+      return { valid: false, cap: null, message: 'Enter a whole number of demo units, 0 or more. The previous cap is kept.' };
+    }
+    return { valid: true, cap: parseInt(t, 10), message: '' };
+  }
+
+  function makeJob(claim, index) {
+    var quote = demoQuoteFor(index);
+    var job = {
+      jobId: index + 1,
+      claimId: claim.id,
+      role: claim.role,
+      kind: claim.kind,
+      checker: demoCheckerFor(index),
+      planned: DEMO_PLANNED,
+      quote: quote,
+      counter: null,
+      decision: '',
+      doVsBuy: '',
+      reason: '',
+      finalPrice: 0,
+      capStatus: '',
+      spent: 0,
+      cut: false
+    };
+    if (quote <= DEMO_PLANNED) {
+      job.decision = 'Buy';
+      job.doVsBuy = 'Buy';
+      job.reason = 'Demo quote is at or below the 10-unit plan, so buying a demo check is the cheaper option in this demo.';
+      job.finalPrice = quote;
+    } else {
+      // Exactly one counter-offer, at the planned price. The demo
+      // checker accepts only if the quote is at most 4 units over
+      // plan; otherwise the demo agent walks away and does it itself.
+      var accepted = quote <= DEMO_PLANNED + 4;
+      job.counter = { offer: DEMO_PLANNED, accepted: accepted, count: 1 };
+      if (accepted) {
+        job.decision = 'Buy after one counter-offer';
+        job.doVsBuy = 'Buy after one counter-offer';
+        job.reason = 'Demo quote was above the 10-unit plan, the agent countered once at 10 demo units, and the demo checker accepted.';
+        job.finalPrice = DEMO_PLANNED;
+      } else {
+        job.decision = 'Do it yourself';
+        job.doVsBuy = 'Do it yourself';
+        job.reason = 'Demo quote stayed above the 10-unit plan after one counter-offer at 10 demo units, so the demo agent walks away and does not buy.';
+        job.finalPrice = 0;
+      }
+    }
+    return job;
+  }
+
+  // Recompute cap status and spent units for a job list, preserving
+  // cut flags and counter decisions. Cut jobs and walked-away jobs
+  // spend nothing and consume no cap.
+  function recomputeJobs(jobs, cap) {
+    var remaining = cap;
+    var totalSpent = 0;
+    var allowed = 0;
+    var blocked = 0;
+    jobs.forEach(function (job) {
+      if (job.cut) {
+        job.capStatus = 'Cut by user';
+        job.spent = 0;
+        return;
+      }
+      if (job.decision === 'Do it yourself') {
+        job.capStatus = 'Not bought — do it yourself (no demo units spent)';
+        job.spent = 0;
+        return;
+      }
+      if (job.finalPrice <= remaining) {
+        job.capStatus = 'Allowed';
+        job.spent = job.finalPrice;
+        remaining -= job.finalPrice;
+        totalSpent += job.finalPrice;
+        allowed += 1;
+      } else {
+        job.capStatus = 'Blocked by cap';
+        job.spent = 0;
+        blocked += 1;
+      }
+    });
+    return { jobs: jobs, cap: cap, totalSpent: totalSpent, remaining: remaining, allowed: allowed, blocked: blocked };
+  }
+
+  function buildAgentJobs(claims, cap) {
+    var jobs = claims.map(function (c, i) { return makeJob(c, i); });
+    var summary = recomputeJobs(jobs, cap);
+    summary.jobs = jobs;
+    return summary;
+  }
+
+  // Edit one claim's text (R9): reclassify it, rebuild its measure
+  // and evidence lines, and reset its status and note, because the
+  // old evidence was for the old text. The evidence gate therefore
+  // cannot be bypassed by editing a claim after it was marked.
+  function updateClaimText(claim, newText) {
+    var t = clean(newText);
+    if (!t) return { error: 'Type the new claim text first.' };
+    claim.text = t;
+    claim.kind = classifyClaim(t);
+    var details = extractDetails(t);
+    claim.measure = measureFor(claim.kind, details);
+    claim.evidence = evidenceFor(claim.kind, details);
+    claim.status = 'Not yet tested';
+    claim.note = '';
+    claim.evidenceCheck = null;
+    return claim;
+  }
+
+  function evidenceCheckText(c) {
+    if (!c.note) return 'Not checked (no evidence note yet)';
+    if (c.evidenceCheck && c.evidenceCheck.passed) return 'Passed format check: named source, date, and openable reference present. This checks the note format only; it does not prove the evidence itself is true.';
+    if (c.evidenceCheck) return 'Failed format check: missing ' + c.evidenceCheck.missing.join(', ') + '.';
+    return 'Not checked';
+  }
+
   function planAsMarkdown(result) {
     if (!result || result.error) return '';
     var lines = ['# Thesis test plan', '', 'Thesis: ' + result.thesis, ''];
     if (result.cappedWarning) lines.push(result.cappedWarning, '');
     result.claims.forEach(function (c) {
-      var checkText;
-      if (!c.note) checkText = 'Not checked (no evidence note yet)';
-      else if (c.evidenceCheck && c.evidenceCheck.passed) checkText = 'Passed format check: named source, date, and openable reference present. This checks the note format only; it does not prove the evidence itself is true.';
-      else if (c.evidenceCheck) checkText = 'Failed format check: missing ' + c.evidenceCheck.missing.join(', ') + '.';
-      else checkText = 'Not checked';
       lines.push('## ' + c.id + '. ' + c.role + ' (' + c.kind + ')');
       lines.push('');
       lines.push('- Claim: ' + c.text);
@@ -236,9 +369,42 @@
       lines.push('- Pass rule: ' + c.passRule);
       lines.push('- Status: ' + c.status);
       lines.push('- Evidence note: ' + (c.note || '(none yet)'));
-      lines.push('- Evidence check: ' + checkText);
+      lines.push('- Evidence check: ' + evidenceCheckText(c));
       lines.push('');
     });
+    // Per-job receipts (R5, DEMO ONLY). Evidence fields are read from
+    // the live claim at export time, so a receipt never shows stale
+    // evidence after a note or status change.
+    var jobsInfo = result.jobs ? recomputeJobs(result.jobs, result.cap || 30) : buildAgentJobs(result.claims, 30);
+    var jobs = jobsInfo.jobs;
+    lines.push('## Agent jobs — DEMO ONLY, not a live payment, not a real hire, not a real quote');
+    lines.push('');
+    lines.push('Demo quotes are fixed illustrative values assigned in job order (8, 12, 10, 18, 9 demo units), not prices from any real agent. Demo checkers are named demo checkers, not accounts. No demo units are real money, and no job here is actually bought.');
+    lines.push('');
+    jobs.forEach(function (job) {
+      var claim = null;
+      result.claims.forEach(function (c) { if (c.id === job.claimId) claim = c; });
+      var counterText = job.counter
+        ? ('one counter-offer at ' + job.counter.offer + ' demo units, ' + (job.counter.accepted ? 'accepted' : 'rejected'))
+        : 'no counter-offer (demo quote was at or below plan)';
+      lines.push('### Receipt — Job ' + job.jobId + ' (claim ' + job.claimId + ', ' + job.role + ')');
+      lines.push('');
+      lines.push('- Job: ' + (claim ? claim.text : job.role));
+      lines.push('- Demo checker: ' + job.checker + ' (demo only, not an account)');
+      lines.push('- Do vs buy: ' + job.doVsBuy + ' — ' + job.reason);
+      lines.push('- Planned: ' + job.planned + ' demo units. Demo quote: ' + job.quote + ' demo units.');
+      lines.push('- Counter-offer: ' + counterText + '.');
+      lines.push('- Decision: ' + job.decision + '. Final demo price: ' + job.finalPrice + ' demo units.');
+      lines.push('- Cap: ' + job.capStatus + '. Demo units spent on this job: ' + job.spent + '.');
+      if (claim) {
+        lines.push('- Evidence status: ' + claim.status + '.');
+        lines.push('- Evidence note: ' + (claim.note || '(none yet)'));
+        lines.push('- Evidence check: ' + evidenceCheckText(claim));
+      }
+      lines.push('');
+    });
+    lines.push('Agent totals (demo units only): cap ' + jobsInfo.cap + ', spent ' + jobsInfo.totalSpent + ', ' + jobsInfo.allowed + ' allowed, ' + jobsInfo.blocked + ' blocked.');
+    lines.push('');
     lines.push('Note: this plan is a test worksheet. It does not prove or disprove the thesis.');
     return lines.join('\n');
   }
@@ -250,7 +416,15 @@
     analyseThesis: analyseThesis,
     planAsMarkdown: planAsMarkdown,
     checkEvidence: checkEvidence,
-    extractDetails: extractDetails
+    extractDetails: extractDetails,
+    parseCap: parseCap,
+    measureFor: measureFor,
+    evidenceFor: evidenceFor,
+    buildAgentJobs: buildAgentJobs,
+    recomputeJobs: recomputeJobs,
+    updateClaimText: updateClaimText,
+    demoQuoteFor: demoQuoteFor,
+    demoCheckerFor: demoCheckerFor
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = root.ThesisAgent;
 })(typeof window !== 'undefined' ? window : globalThis);

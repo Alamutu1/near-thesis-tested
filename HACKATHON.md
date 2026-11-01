@@ -40,8 +40,21 @@ runs entirely as a static web page, with no backend, no paid API, and no keys.
 5. **Do X:** Press "Copy test plan as text" or "Download test plan (.md)".
    **See Y:** The full plan, including your notes and statuses.
 6. **Do X:** Change the spending cap to 10, with a 3-part plan on screen.
-   **See Y:** A "Blocked by your cap" note, showing only 1 of 3 jobs fits.
-7. **Do X:** Press "Show the NEAR plug-in point (dry run)".
+   **See Y:** A "Blocked by your cap" note, showing only 1 of 3 jobs fits
+   (job 1 at 8 demo units; jobs 2 and 3 do not fit).
+7. **Do X:** In Step 3, read the per-job list (DEMO ONLY).
+   **See Y:** One row per sub-claim with a demo quote, a do-vs-buy
+   line, exactly one counter-offer when the quote is above the
+   10-unit plan, and allowed / blocked / cut status. Job 2 of
+   example 1 counters once at 10 demo units and is accepted. Cut a
+   job and see the totals change; the download records that cut in
+   its per-job receipt. An invalid cap (for example "abc") shows an
+   error and keeps the previous cap.
+8. **Do X:** Edit or delete a claim, then refresh the page.
+   **See Y:** The change is restored from this browser only
+   (localStorage, no server). An edited claim starts again as
+   "Not yet tested" with no evidence note.
+9. **Do X:** Press "Show the NEAR plug-in point (dry run)".
    **See Y:** A DRY RUN object, clearly labelled as not submitted, not
    signed, and not a transaction.
 
@@ -50,7 +63,10 @@ runs entirely as a static web page, with no backend, no paid API, and no keys.
 - **Real:** thesis breakdown, classification, test-plan generation, evidence
   notes, status marking, progress, copy, and Markdown download, plus the
   local evidence format gate (named source, date, openable reference,
-  format check only) and a real test suite (`npm test`). All local.
+  format check only), the per-job agent loop as a labelled demo
+  (demo quotes, do-vs-buy, one counter-offer, per-job receipts, cut),
+  cap validation, local-only persistence, claim edit/delete, and a
+  real test suite (`npm test`, 32 tests). All local, no network call.
 - **Demo only:** the agent payment step (demo units only, no real payment)
   and the NEAR integration in `near-integration.js` (a dry-run object,
   never sent, no wallet, no signature, no transaction hash).

@@ -26,7 +26,11 @@
         claimCount: result.claims.length,
         thesis: result.thesis,
         // Demo units only. This is not NEAR, not a stablecoin, not money.
-        budgetDemoUnits: result.claims.length * 10,
+        // Total of the per-job demo quotes (8, 12, 10, 18, 9 in job
+        // order) when jobs are present, otherwise the old flat total.
+        budgetDemoUnits: result.jobs
+          ? result.jobs.reduce(function (sum, j) { return sum + j.quote; }, 0)
+          : result.claims.length * 10,
         currency: 'DEMO UNITS ONLY — not NEAR, not USD'
       },
       // This is the shape a real NEAR Intents request would take.

@@ -22,6 +22,10 @@
   .progress { height: 12px; background: #e8e4da; border-radius: 999px; overflow: hidden; }
   .progress > div { height: 100%; background: #1e8a4c; width: 0%; }
   .demo-note { background: #fff7cc; border: 1px solid #d9b800; border-radius: 8px; padding: 12px; }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid #0057a8; outline-offset: 2px; }
+  .jobcard { border-left: 6px solid #0057a8; }
+  .jobcard.blocked { border-left-color: #a30000; }
+  .jobcard.cut { border-left-color: #888; opacity: 0.85; }
   pre { white-space: pre-wrap; word-break: break-word; background: #f4f2ec; padding: 12px; border-radius: 8px; font-size: 13px; }
   a { color: #0057a8; }
 </style>
@@ -41,14 +45,16 @@
       <button id="example1" class="secondary" type="button">Try example 1</button>
       <button id="example2" class="secondary" type="button">Try example 2</button>
       <button id="example3" class="secondary" type="button">Try example 3</button>
+      <button id="clearSavedBtn" class="secondary" type="button">Clear saved plan</button>
     </p>
+    <p id="savedNote" class="muted">Your plan is saved in this browser only (localStorage, no server) so a refresh keeps it. Clear saved plan removes it.</p>
     <p id="error" class="error" role="alert"></p>
   </div>
 
   <div id="results" hidden>
     <h2>Step 2: Your test plan</h2>
     <p id="summary"></p>
-    <div class="progress" aria-label="Test plan progress"><div id="progressBar"></div></div>
+    <div class="progress" role="progressbar" aria-label="Test plan progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progressWrap"><div id="progressBar"></div></div>
     <p id="progressText" class="muted"></p>
     <div id="claims"></div>
     <p>
@@ -62,13 +68,15 @@
     <h2>Step 3: How an agent would be paid for this work</h2>
     <div class="demo-note">
       <strong>DEMO DESIGN ONLY, not a live NEAR payment.</strong>
-      In a full version, a checker agent would be hired for one sub-claim at a time, and paid only after it records a named, dated, openable evidence link. That payment step is not built here, and no transaction is shown as real.
+      In a full version, a checker agent would be hired for one sub-claim at a time, and paid only after it records a named, dated, openable evidence link. That payment step is not built here, and no transaction is shown as real. The job list below is that loop as a labelled demo: demo quotes, one counter-offer per job, a do-vs-buy line, and a receipt per job in the download. Nothing here is bought, hired, or quoted by a real agent.
     </div>
     <label for="budgetCap">Your spending cap (demo units only)</label>
     <input type="text" id="budgetCap" value="30" inputmode="numeric">
-    <p class="muted">The agent may not exceed this cap. If the job list costs more than the cap, the extra jobs stay blocked until you raise the cap or cut the scope. This is the spending guardrail: an agent with a wallet, but with limits you set.</p>
+    <p id="budgetError" class="error" role="alert"></p>
+    <p class="muted">The agent may not exceed this cap. If the job list costs more than the cap, the extra jobs stay blocked until you raise the cap or cut the scope. This is the spending guardrail: an agent with a wallet, but with limits you set. Enter a whole number of demo units, 0 or more; an invalid cap is shown as an error and the previous cap is kept, never silently replaced.</p>
     <p id="agentLedger" class="muted">Break a thesis down first, and the agent job list will appear here.</p>
     <p id="budgetNote" class="muted"></p>
+    <div id="jobList"></div>
     <pre id="nearDryRun" hidden></pre>
     <p><button id="showNearBtn" type="button" class="secondary">Show the NEAR plug-in point (dry run)</button></p>
     <p class="muted">See <code>near-integration.js</code> for the exact code path. A real NEAR Intents call would need the user's own testnet account and approval, and is not part of this demo.</p>
@@ -85,7 +93,8 @@
     <ol>
       <li>Type a thesis, then press "Break it down", then see a structured list of checkable parts.</li>
       <li>For each part, add an evidence note that names a source, gives a date, and gives a link or document name, then change its status from "Not yet tested", then see the progress bar move. A decided status is blocked until the note passes that check, and the missing element is shown by name.</li>
-      <li>Press "Copy test plan as text" or "Download test plan (.md)", then see the full plan, with your notes included.</li>
+      <li>Press "Copy test plan as text" or "Download test plan (.md)", then see the full plan, with your notes included, plus a per-job receipt for every agent job (demo only).</li>
+      <li>In Step 3, see one job row per sub-claim with its demo quote, do-vs-buy line, one counter-offer when the quote is above plan, and whether it is allowed, blocked by the cap, or cut. Cut a job and see the totals change; the download then records that cut in its receipt.</li>
     </ol>
     <p class="muted">Full details, including what is real and what is demo only, are in <a href="README.md">README.md</a> and <a href="HACKATHON.md">HACKATHON.md</a>.</p>
   </div>
@@ -101,7 +110,95 @@
   var progressBar = document.getElementById('progressBar');
   var progressText = document.getElementById('progressText');
   var agentLedger = document.getElementById('agentLedger');
+  var progressWrap = document.getElementById('progressWrap');
   var current = null;
+  var lastValidCap = 30;
+  var STORAGE_KEY = 'thesis-agent-plan-v1';
+
+  function savePlan() {
+    try {
+      if (!current) return;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        thesis: current.thesis,
+        cap: lastValidCap,
+        cutClaimIds: current.jobs.filter(function (j) { return j.cut; }).map(function (j) { return j.claimId; }),
+        capped: !!current.capped,
+        cappedWarning: current.cappedWarning || '',
+        claims: current.claims.map(function (c) { return { text: c.text, role: c.role, note: c.note, status: c.status }; })
+      }));
+    } catch (e) { /* local storage unavailable: the demo still works, it just does not persist */ }
+  }
+
+  function rebuildJobsPreservingCuts() {
+    if (!current) return;
+    var cutIds = {};
+    (current.jobs || []).forEach(function (j) { if (j.cut) cutIds[j.claimId] = true; });
+    current.jobs = ThesisAgent.buildAgentJobs(current.claims, lastValidCap).jobs;
+    current.jobs.forEach(function (j) { if (cutIds[j.claimId]) j.cut = true; });
+    current.agentTotals = ThesisAgent.recomputeJobs(current.jobs, lastValidCap);
+    current.cap = lastValidCap;
+  }
+
+  function renderJobs() {
+    var jobList = document.getElementById('jobList');
+    jobList.innerHTML = '';
+    if (!current || !current.jobs) return;
+    var totals = ThesisAgent.recomputeJobs(current.jobs, lastValidCap);
+    current.agentTotals = totals;
+    var head = document.createElement('h3');
+    head.textContent = 'Agent jobs (DEMO ONLY — not a live payment, not a real hire, not a real quote)';
+    jobList.appendChild(head);
+    var intro = document.createElement('p');
+    intro.className = 'muted';
+    intro.textContent = 'Demo quotes are fixed illustrative values in job order (8, 12, 10, 18, 9 demo units), not prices from any real agent. Demo checkers are named demo checkers, not accounts. No demo units are real money.';
+    jobList.appendChild(intro);
+    current.jobs.forEach(function (job) {
+      var div = document.createElement('div');
+      div.className = 'card jobcard' + (job.capStatus === 'Blocked by cap' ? ' blocked' : '') + (job.cut ? ' cut' : '');
+      var h = document.createElement('h4');
+      h.textContent = 'Job ' + job.jobId + ' — claim ' + job.claimId + ' (' + job.role + ')';
+      div.appendChild(h);
+      var claim = null;
+      current.claims.forEach(function (c) { if (c.id === job.claimId) claim = c; });
+      var lines = [
+        'Job: ' + (claim ? claim.text : job.role),
+        'Demo checker: ' + job.checker + ' (demo only, not an account)',
+        'Do vs buy: ' + job.doVsBuy + ' — ' + job.reason,
+        'Planned: ' + job.planned + ' demo units. Demo quote: ' + job.quote + ' demo units.',
+        'Counter-offer: ' + (job.counter ? ('one counter-offer at ' + job.counter.offer + ' demo units, ' + (job.counter.accepted ? 'accepted' : 'rejected')) : 'no counter-offer (demo quote was at or below plan)'),
+        'Decision: ' + job.decision + '. Final demo price: ' + job.finalPrice + ' demo units.',
+        'Cap: ' + job.capStatus + '. Demo units spent on this job: ' + job.spent + '.'
+      ];
+      lines.forEach(function (line) { var p = document.createElement('p'); p.textContent = line; div.appendChild(p); });
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'secondary';
+      btn.textContent = job.cut ? 'Restore this job' : 'Cut this job';
+      btn.addEventListener('click', function () {
+        job.cut = !job.cut;
+        renderJobs();
+        updateBudgetText();
+        savePlan();
+      });
+      div.appendChild(btn);
+      jobList.appendChild(div);
+    });
+    var totalP = document.createElement('p');
+    totalP.className = 'muted';
+    totalP.textContent = 'Agent totals (demo units only): cap ' + totals.cap + ', spent ' + totals.totalSpent + ', ' + totals.allowed + ' allowed, ' + totals.blocked + ' blocked, ' + current.jobs.filter(function (j) { return j.cut; }).length + ' cut.';
+    jobList.appendChild(totalP);
+  }
+
+  function updateBudgetText() {
+    if (!current) return;
+    var totals = ThesisAgent.recomputeJobs(current.jobs, lastValidCap);
+    current.agentTotals = totals;
+    agentLedger.textContent = 'Agent jobs (DEMO only): ' + current.jobs.length + ' checker jobs, one per sub-claim. Demo quotes total ' +
+      current.jobs.reduce(function (s, j) { return s + j.quote; }, 0) + ' demo units. Cap: ' + lastValidCap + ' demo units. Spent on allowed jobs: ' + totals.totalSpent + ' demo units. No real payment is made or promised.';
+    document.getElementById('budgetNote').textContent = totals.blocked
+      ? ('Blocked by your cap: ' + totals.blocked + ' job(s) do not fit inside the cap. ' + totals.allowed + ' of ' + current.jobs.length + ' jobs are allowed (cut and walked-away jobs spend nothing).')
+      : ('Inside your cap: all bought jobs fit, with ' + totals.remaining + ' demo units left.');
+  }
 
   function example(text) { thesisEl.value = text; thesisEl.focus(); }
 
@@ -126,6 +223,10 @@
     var inconclusive = current.claims.filter(function (c) { return c.status === 'Inconclusive'; }).length;
     var pct = Math.round(decided / current.claims.length * 100);
     progressBar.style.width = pct + '%';
+    if (progressWrap) {
+      progressWrap.setAttribute('aria-valuenow', String(pct));
+      progressWrap.setAttribute('aria-valuetext', decided + ' of ' + current.claims.length + ' parts decided with passing evidence');
+    }
     progressText.textContent = decided + ' of ' + current.claims.length + ' parts decided with passing evidence (' + pct + '%). ' +
       inconclusive + ' inconclusive (not counted as decided).';
   }
@@ -146,7 +247,7 @@
       var noteId = 'note-' + c.id;
       var statusId = 'status-' + c.id;
       div.innerHTML =
-        '<h3>' + c.id + '. ' + c.role + ': ' + c.kind + '</h3>' +
+        '<h3>' + c.id + '. ' + escapeHtml(c.role) + ': ' + escapeHtml(c.kind) + '</h3>' +
         '<p>' + escapeHtml(c.text) + '</p>' +
         '<p><strong>How to measure:</strong> ' + escapeHtml(c.measure) + '</p>' +
         '<p><strong>Evidence needed:</strong> ' + escapeHtml(c.evidence) + '</p>' +
@@ -158,7 +259,12 @@
         '<select id="' + statusId + '">' +
         '<option>Not yet tested</option><option>Supported by evidence</option>' +
         '<option>Not supported by evidence</option><option>Inconclusive</option></select>' +
-        '<p class="status">Status: <span id="statusText-' + c.id + '">Not yet tested</span></p>';
+        '<p class="status">Status: <span id="statusText-' + c.id + '">Not yet tested</span></p>' +
+        '<p><button type="button" class="secondary" id="edit-' + c.id + '">Edit this claim</button> ' +
+        '<button type="button" class="secondary" id="delete-' + c.id + '">Delete this part</button></p>' +
+        '<p hidden id="editwrap-' + c.id + '"><label for="editinput-' + c.id + '">New claim text (editing resets its status and evidence note)</label>' +
+        '<input type="text" id="editinput-' + c.id + '"> ' +
+        '<button type="button" id="saveedit-' + c.id + '">Save edit</button></p>';
       claimsEl.appendChild(div);
       var noteEl = document.getElementById(noteId);
       var statusEl = document.getElementById(statusId);
@@ -179,6 +285,8 @@
           gateEl.textContent = gateMessageFor(c);
         }
         updateProgress();
+        renderJobs();
+        savePlan();
       });
       statusEl.addEventListener('change', function (e) {
         var target = e.target.value;
@@ -203,30 +311,54 @@
         }
         document.getElementById('statusText-' + c.id).textContent = c.status;
         updateProgress();
+        renderJobs();
+        savePlan();
+      });
+      document.getElementById('edit-' + c.id).addEventListener('click', function () {
+        var wrap = document.getElementById('editwrap-' + c.id);
+        var input = document.getElementById('editinput-' + c.id);
+        input.value = c.text;
+        wrap.hidden = !wrap.hidden;
+        if (!wrap.hidden) input.focus();
+      });
+      document.getElementById('saveedit-' + c.id).addEventListener('click', function () {
+        var input = document.getElementById('editinput-' + c.id);
+        var updated = ThesisAgent.updateClaimText(c, input.value);
+        if (updated.error) { gateEl.textContent = updated.error; return; }
+        rebuildJobsPreservingCuts();
+        render();
+        savePlan();
+      });
+      document.getElementById('delete-' + c.id).addEventListener('click', function () {
+        current.claims = current.claims.filter(function (x) { return x.id !== c.id; });
+        current.claims.forEach(function (x, i) { x.id = i + 1; });
+        current.claimCount = current.claims.length;
+        rebuildJobsPreservingCuts();
+        render();
+        savePlan();
       });
     });
-    var cost = current.claims.length * 10;
-    var cap = parseInt(document.getElementById('budgetCap').value, 10);
-    if (isNaN(cap)) cap = 30;
-    agentLedger.textContent = 'Agent jobs: ' + current.claims.length + ' checker jobs, one per sub-claim. Demo cost: ' +
-      cost + ' demo units (10 per job). Cap: ' + cap + ' demo units. No real payment is made or promised.';
-    document.getElementById('budgetNote').textContent = cost > cap
-      ? ('Blocked by your cap: ' + (cost - cap) + ' demo units over budget. ' + Math.floor(cap / 10) + ' of ' + current.claims.length + ' jobs fit inside the cap.')
-      : ('Inside your cap: all ' + current.claims.length + ' jobs fit, with ' + (cap - cost) + ' demo units left.');
+    current.cap = lastValidCap;
     resultsEl.hidden = false;
     updateProgress();
+    renderJobs();
+    updateBudgetText();
   }
 
   function updateBudget() {
     if (!current) return;
-    var cost = current.claims.length * 10;
-    var cap = parseInt(document.getElementById('budgetCap').value, 10);
-    if (isNaN(cap)) cap = 30;
-    agentLedger.textContent = 'Agent jobs: ' + current.claims.length + ' checker jobs, one per sub-claim. Demo cost: ' +
-      cost + ' demo units (10 per job). Cap: ' + cap + ' demo units. No real payment is made or promised.';
-    document.getElementById('budgetNote').textContent = cost > cap
-      ? ('Blocked by your cap: ' + (cost - cap) + ' demo units over budget. ' + Math.floor(cap / 10) + ' of ' + current.claims.length + ' jobs fit inside the cap.')
-      : ('Inside your cap: all ' + current.claims.length + ' jobs fit, with ' + (cap - cost) + ' demo units left.');
+    var parsed = ThesisAgent.parseCap(document.getElementById('budgetCap').value);
+    var errEl = document.getElementById('budgetError');
+    if (!parsed.valid) {
+      errEl.textContent = parsed.message;
+      return;
+    }
+    errEl.textContent = '';
+    lastValidCap = parsed.cap;
+    current.cap = lastValidCap;
+    renderJobs();
+    updateBudgetText();
+    savePlan();
   }
   document.getElementById('budgetCap').addEventListener('input', updateBudget);
 
@@ -238,11 +370,82 @@
     var result = ThesisAgent.analyseThesis(thesisEl.value);
     if (result.error) { errorEl.textContent = result.error; resultsEl.hidden = true; current = null; return; }
     errorEl.textContent = '';
+    var parsed = ThesisAgent.parseCap(document.getElementById('budgetCap').value);
+    if (parsed.valid) { lastValidCap = parsed.cap; document.getElementById('budgetError').textContent = ''; }
+    else { document.getElementById('budgetError').textContent = parsed.message; }
     current = result;
+    current.cap = lastValidCap;
+    current.jobs = ThesisAgent.buildAgentJobs(current.claims, lastValidCap).jobs;
     document.getElementById('nearDryRun').hidden = true;
     render();
+    savePlan();
     resultsEl.scrollIntoView();
   });
+
+  document.getElementById('clearSavedBtn').addEventListener('click', function () {
+    try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+    document.getElementById('savedNote').textContent = 'Saved plan cleared. This plan will not be restored on refresh unless you break it down again.';
+  });
+
+  // Restore a saved plan on load, reapplying notes and statuses
+  // through the evidence gate, never trusting a stored decision.
+  (function loadSavedPlan() {
+    var raw = null;
+    try { raw = localStorage.getItem(STORAGE_KEY); } catch (e) { return; }
+    if (!raw) return;
+    var saved;
+    try { saved = JSON.parse(raw); } catch (e) { return; }
+    if (!saved || !saved.thesis) return;
+    var result = ThesisAgent.analyseThesis(saved.thesis);
+    if (result.error) return;
+    var parsed = ThesisAgent.parseCap(String(saved.cap));
+    lastValidCap = parsed.valid ? parsed.cap : 30;
+    document.getElementById('budgetCap').value = String(lastValidCap);
+    thesisEl.value = saved.thesis;
+    var cutIds = {};
+    (saved.cutClaimIds || []).forEach(function (id) { cutIds[id] = true; });
+    // Restore the saved claim list itself (not a fresh breakdown), so
+    // edits and deletes survive a refresh. Each saved claim is
+    // reclassified from its own text, and a decided status is only
+    // kept if its saved note still passes the evidence gate.
+    if (saved.claims && saved.claims.length) {
+      result.claims = saved.claims.map(function (sc, i) {
+        var kind = ThesisAgent.classifyClaim(sc.text);
+        var details = ThesisAgent.extractDetails(sc.text);
+        var claim = {
+          id: i + 1,
+          role: sc.role || 'Sub-claim',
+          text: sc.text,
+          kind: kind,
+          measure: '',
+          evidence: '',
+          passRule: 'Pass only if the evidence is named, dated, and openable. Otherwise it stays untested.',
+          status: 'Not yet tested',
+          note: sc.note || '',
+          evidenceCheck: null
+        };
+        claim.measure = ThesisAgent.measureFor(kind, details);
+        claim.evidence = ThesisAgent.evidenceFor(kind, details);
+        claim.evidenceCheck = ThesisAgent.checkEvidence(claim.note);
+        if ((sc.status === 'Supported by evidence' || sc.status === 'Not supported by evidence') && claim.evidenceCheck.passed) {
+          claim.status = sc.status;
+        } else if (sc.status === 'Inconclusive') {
+          claim.status = 'Inconclusive';
+        }
+        return claim;
+      });
+      result.claimCount = result.claims.length;
+      result.capped = !!saved.capped;
+      result.cappedWarning = saved.cappedWarning || '';
+      result.summary = 'This thesis breaks into ' + result.claims.length + ' checkable parts. None of them is marked true or false yet. Add evidence for each part, then mark it yourself.' + (result.cappedWarning ? ' ' + result.cappedWarning : '');
+    }
+    current = result;
+    current.cap = lastValidCap;
+    current.jobs = ThesisAgent.buildAgentJobs(current.claims, lastValidCap).jobs;
+    current.jobs.forEach(function (j) { if (cutIds[j.claimId]) j.cut = true; });
+    render();
+    document.getElementById('savedNote').textContent = 'Restored your saved plan from this browser (local only).';
+  })();
 
   document.getElementById('showNearBtn').addEventListener('click', function () {
     var pre = document.getElementById('nearDryRun');
