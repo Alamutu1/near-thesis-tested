@@ -84,7 +84,7 @@
     <h2>Try it yourself</h2>
     <ol>
       <li>Type a thesis, then press "Break it down", then see a structured list of checkable parts.</li>
-      <li>For each part, add an evidence note, then change its status from "Not yet tested", then see the progress bar move.</li>
+      <li>For each part, add an evidence note that names a source, gives a date, and gives a link or document name, then change its status from "Not yet tested", then see the progress bar move. A decided status is blocked until the note passes that check, and the missing element is shown by name.</li>
       <li>Press "Copy test plan as text" or "Download test plan (.md)", then see the full plan, with your notes included.</li>
     </ol>
     <p class="muted">Full details, including what is real and what is demo only, are in <a href="README.md">README.md</a> and <a href="HACKATHON.md">HACKATHON.md</a>.</p>
@@ -117,10 +117,24 @@
 
   function updateProgress() {
     if (!current) return;
-    var done = current.claims.filter(function (c) { return c.status !== 'Not yet tested'; }).length;
-    var pct = Math.round(done / current.claims.length * 100);
+    // Only a decision WITH a passing evidence note counts as decided.
+    // Inconclusive is counted separately and never counts as decided.
+    var decided = current.claims.filter(function (c) {
+      return (c.status === 'Supported by evidence' || c.status === 'Not supported by evidence') &&
+        c.evidenceCheck && c.evidenceCheck.passed;
+    }).length;
+    var inconclusive = current.claims.filter(function (c) { return c.status === 'Inconclusive'; }).length;
+    var pct = Math.round(decided / current.claims.length * 100);
     progressBar.style.width = pct + '%';
-    progressText.textContent = done + ' of ' + current.claims.length + ' parts marked (' + pct + '%).';
+    progressText.textContent = decided + ' of ' + current.claims.length + ' parts decided with passing evidence (' + pct + '%). ' +
+      inconclusive + ' inconclusive (not counted as decided).';
+  }
+
+  function gateMessageFor(c) {
+    if (!c.note) return 'Add a note that names a source, gives a date, and gives a link or document name, before marking this part decided.';
+    var check = ThesisAgent.checkEvidence(c.note);
+    if (check.passed) return 'Evidence check passed (format check only; it does not prove the evidence itself is true).';
+    return 'Evidence check: missing ' + check.missing.join(', ') + '.';
   }
 
   function render() {
@@ -137,17 +151,56 @@
         '<p><strong>How to measure:</strong> ' + escapeHtml(c.measure) + '</p>' +
         '<p><strong>Evidence needed:</strong> ' + escapeHtml(c.evidence) + '</p>' +
         '<p><strong>Pass rule:</strong> ' + escapeHtml(c.passRule) + '</p>' +
-        '<label for="' + noteId + '">Evidence note (a link, a document name, or a number)</label>' +
-        '<input type="text" id="' + noteId + '" placeholder="Example: sales ledger, March 2026">' +
-        '<label for="' + statusId + '">Status (you decide)</label>' +
+        '<label for="' + noteId + '">Evidence note (must name a source, give a date, and give a link or document name)</label>' +
+        '<input type="text" id="' + noteId + '" placeholder="Example: sales ledger (sales-ledger-march-2026.pdf), March 2026">' +
+        '<p id="gate-' + c.id + '" class="muted"></p>' +
+        '<label for="' + statusId + '">Status (you decide, but a decided status needs a passing evidence note)</label>' +
         '<select id="' + statusId + '">' +
         '<option>Not yet tested</option><option>Supported by evidence</option>' +
         '<option>Not supported by evidence</option><option>Inconclusive</option></select>' +
         '<p class="status">Status: <span id="statusText-' + c.id + '">Not yet tested</span></p>';
       claimsEl.appendChild(div);
-      document.getElementById(noteId).addEventListener('input', function (e) { c.note = e.target.value; });
-      document.getElementById(statusId).addEventListener('change', function (e) {
-        c.status = e.target.value;
+      var noteEl = document.getElementById(noteId);
+      var statusEl = document.getElementById(statusId);
+      var gateEl = document.getElementById('gate-' + c.id);
+      noteEl.value = c.note || '';
+      statusEl.value = c.status;
+      gateEl.textContent = gateMessageFor(c);
+      noteEl.addEventListener('input', function (e) {
+        c.note = e.target.value;
+        c.evidenceCheck = ThesisAgent.checkEvidence(c.note);
+        // A decision may not stand on a note that no longer passes.
+        if ((c.status === 'Supported by evidence' || c.status === 'Not supported by evidence') && !c.evidenceCheck.passed) {
+          c.status = 'Not yet tested';
+          statusEl.value = c.status;
+          document.getElementById('statusText-' + c.id).textContent = c.status;
+          gateEl.textContent = 'Status returned to Not yet tested: the edited note no longer passes the evidence check. Missing ' + c.evidenceCheck.missing.join(', ') + '.';
+        } else {
+          gateEl.textContent = gateMessageFor(c);
+        }
+        updateProgress();
+      });
+      statusEl.addEventListener('change', function (e) {
+        var target = e.target.value;
+        var previous = c.status;
+        if (target === 'Supported by evidence' || target === 'Not supported by evidence') {
+          var check = ThesisAgent.checkEvidence(c.note);
+          c.evidenceCheck = check;
+          if (!check.passed) {
+            statusEl.value = previous;
+            gateEl.textContent = 'Cannot mark this part ' + target.toLowerCase() + ' yet: missing ' + check.missing.join(', ') + '. Add a note that names a source, gives a date, and gives a link or document name.';
+            return;
+          }
+          c.status = target;
+          gateEl.textContent = 'Evidence check passed (format check only; it does not prove the evidence itself is true).';
+        } else if (target === 'Inconclusive') {
+          c.status = target;
+          c.evidenceCheck = ThesisAgent.checkEvidence(c.note);
+          gateEl.textContent = 'Inconclusive: evidence is insufficient or not yet checked. It does not count as decided.';
+        } else {
+          c.status = target;
+          gateEl.textContent = gateMessageFor(c);
+        }
         document.getElementById('statusText-' + c.id).textContent = c.status;
         updateProgress();
       });
