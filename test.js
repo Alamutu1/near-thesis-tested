@@ -275,4 +275,30 @@ check('live quote parser rejects missing amounts and empty responses', function 
   assert.strictEqual(near.parseLiveQuote({ quote: { amountInFormatted: '1.0' } }), null);
 });
 
+// R9 remainder (Phase 4): ?thesis= share link.
+check('share link: decodes a percent-encoded thesis', function () {
+  assert.strictEqual(a.thesisFromShareQuery('?thesis=Small%20businesses%20lose%20money%20in%202026.'), 'Small businesses lose money in 2026.');
+});
+check('share link: plus signs decode as spaces, other params ignored', function () {
+  assert.strictEqual(a.thesisFromShareQuery('?utm_source=x&thesis=Remote+work+increases+productivity.'), 'Remote work increases productivity.');
+});
+check('share link: missing, empty, or blank thesis gives an empty string', function () {
+  assert.strictEqual(a.thesisFromShareQuery(''), '');
+  assert.strictEqual(a.thesisFromShareQuery('?foo=bar'), '');
+  assert.strictEqual(a.thesisFromShareQuery('?thesis='), '');
+  assert.strictEqual(a.thesisFromShareQuery('?thesis=%20%20'), '');
+});
+check('share link: markup payload stays a plain string, never executed', function () {
+  var payload = '<script>alert(1)</script> Small shops lose sales in 2026.';
+  assert.strictEqual(a.thesisFromShareQuery('?thesis=' + encodeURIComponent(payload)), payload);
+});
+check('share link: encode/decode round-trip preserves the thesis', function () {
+  var thesis = 'Small businesses lose money because they do not track who owes them.';
+  var link = 'https://thesis-agent.netlify.app/?thesis=' + encodeURIComponent(thesis);
+  var query = link.slice(link.indexOf('?'));
+  assert.strictEqual(a.thesisFromShareQuery(query), thesis);
+  var r = a.analyseThesis(a.thesisFromShareQuery(query));
+  assert.strictEqual(r.claims.length, 3);
+});
+
 console.log(passed + ' tests passed');

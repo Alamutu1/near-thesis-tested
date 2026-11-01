@@ -331,7 +331,27 @@
     return summary;
   }
 
-  // Edit one claim's text (R9): reclassify it, rebuild its measure
+  // R9 remainder (Phase 4): shareable ?thesis= link. Reads the thesis
+  // from a URL query string only — no backend, no server, no account.
+  // Returns the decoded thesis as a plain string (never HTML), or ''
+  // when the parameter is missing or blank. The page assigns it to a
+  // textarea value and renders claims through escapeHtml, so a payload
+  // such as "<script>" stays inert text and is never executed.
+  function thesisFromShareQuery(query) {
+    var q = String(query || '').replace(/^[?#]/, '');
+    if (!q) return '';
+    var raw = '';
+    try {
+      var params = new URLSearchParams(q);
+      raw = params.get('thesis') || '';
+    } catch (e) {
+      var m = q.match(/(?:^|&)thesis=([^&]*)/);
+      if (m) {
+        try { raw = decodeURIComponent(m[1].replace(/\+/g, ' ')); } catch (e2) { raw = ''; }
+      }
+    }
+    return clean(raw);
+  }
   // and evidence lines, and reset its status and note, because the
   // old evidence was for the old text. The evidence gate therefore
   // cannot be bypassed by editing a claim after it was marked.
@@ -418,6 +438,7 @@
     checkEvidence: checkEvidence,
     extractDetails: extractDetails,
     parseCap: parseCap,
+    thesisFromShareQuery: thesisFromShareQuery,
     measureFor: measureFor,
     evidenceFor: evidenceFor,
     buildAgentJobs: buildAgentJobs,

@@ -124,6 +124,9 @@ No build step, no server, no install, no keys, no account needed.
   **See Y:** The edited claim (or a deleted part's absence) is
   restored from this browser only, and an edited claim starts again
   as "Not yet tested" with no evidence note.
+- **Do X:** Press "Copy share link", then open the copied link.
+  **See Y:** The same thesis is pre-filled in the text box, with no
+  server and no account. Press "Break it down" to build its plan.
 - **Do X:** Press "Show the NEAR plug-in point (dry run)".
   **See Y:** A clearly labelled DRY RUN object. No transaction is sent.
 - **Do X:** Press "Get a live quote (dry run, no payment)".

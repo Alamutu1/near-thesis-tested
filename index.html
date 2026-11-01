@@ -46,7 +46,9 @@
       <button id="example2" class="secondary" type="button">Try example 2</button>
       <button id="example3" class="secondary" type="button">Try example 3</button>
       <button id="clearSavedBtn" class="secondary" type="button">Clear saved plan</button>
+      <button id="shareBtn" class="secondary" type="button">Copy share link</button>
     </p>
+    <p id="shareNote" class="muted"></p>
     <p id="savedNote" class="muted">Your plan is saved in this browser only (localStorage, no server) so a refresh keeps it. Clear saved plan removes it.</p>
     <p id="error" class="error" role="alert"></p>
   </div>
@@ -203,6 +205,33 @@
       ? ('Blocked by your cap: ' + totals.blocked + ' job(s) do not fit inside the cap. ' + totals.allowed + ' of ' + current.jobs.length + ' jobs are allowed (cut and walked-away jobs spend nothing).')
       : ('Inside your cap: all bought jobs fit, with ' + totals.remaining + ' demo units left.');
   }
+
+  // R9 remainder (Phase 4): shareable ?thesis= link. A shared thesis
+  // pre-fills the text box only; it is assigned to a textarea value
+  // (never inserted as HTML), and the user still presses "Break it
+  // down". A shared link takes precedence over a saved plan, so the
+  // shared thesis is what the recipient sees.
+  var sharedThesis = '';
+  try { sharedThesis = ThesisAgent.thesisFromShareQuery(window.location.search); } catch (e) { sharedThesis = ''; }
+
+  document.getElementById('shareBtn').addEventListener('click', function () {
+    var noteEl = document.getElementById('shareNote');
+    var thesis = thesisEl.value.trim();
+    if (!thesis) { noteEl.textContent = 'Type a thesis first, then copy its share link.'; return; }
+    var base = (window.location.origin && window.location.origin !== 'null')
+      ? window.location.origin + window.location.pathname
+      : window.location.href.split('?')[0].split('#')[0];
+    var link = base + '?thesis=' + encodeURIComponent(thesis);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(link).then(function () {
+        noteEl.textContent = 'Share link copied. Anyone opening it sees this thesis pre-filled (no server, no account).';
+      }, function () {
+        noteEl.textContent = 'Copy was blocked by the browser. Copy this link instead: ' + link;
+      });
+    } else {
+      noteEl.textContent = 'Copy this link: ' + link;
+    }
+  });
 
   function example(text) { thesisEl.value = text; thesisEl.focus(); }
 
@@ -394,6 +423,7 @@
   // Restore a saved plan on load, reapplying notes and statuses
   // through the evidence gate, never trusting a stored decision.
   (function loadSavedPlan() {
+    if (sharedThesis) return; // a shared link wins over a saved plan
     var raw = null;
     try { raw = localStorage.getItem(STORAGE_KEY); } catch (e) { return; }
     if (!raw) return;
@@ -450,6 +480,13 @@
     render();
     document.getElementById('savedNote').textContent = 'Restored your saved plan from this browser (local only).';
   })();
+
+  // Pre-fill from a shared ?thesis= link, after the saved-plan restore
+  // above, so the shared thesis is never overwritten by a saved plan.
+  if (sharedThesis) {
+    thesisEl.value = sharedThesis;
+    document.getElementById('shareNote').textContent = 'Thesis loaded from a shared link. Press "Break it down" to build its test plan.';
+  }
 
   document.getElementById('showNearBtn').addEventListener('click', function () {
     var pre = document.getElementById('nearDryRun');
