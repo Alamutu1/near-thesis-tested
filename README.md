@@ -226,9 +226,11 @@ thesis -> break into checkable parts -> measure + evidence plan per part
 
 The agent loop above is a labelled demo, not a live payment, hire, or
 real quote. The live quote above is real but dry-only: it quotes a
-price, it does not pay, hire, or move money. A testnet escrow contract
-is Phase 3 work, subject to a separate review; its status is recorded
-in the Phase 3 section below.
+price, it does not pay, hire, or move money. The testnet escrow
+contract is Phase 3 work, now complete: contract account
+thesis-agent-escrow2.testnet, with the release path and the walk-away
+refund path both verified on testnet; see the Phase 3 section below
+for the transaction hashes.
 
 Key policy, as currently true: there is no wallet, no key, and no secret
 in this repository or in the demo. The dry-run object is built locally
@@ -242,14 +244,17 @@ stored by this demo.
 npm test
 ```
 
-Expected output: all 36 tests pass, including the README example with
+Expected output: all 41 tests pass, including the README example with
 exactly 3 claims, the breakdown failure cases (short fragments, leading
 connectors, leading and multiple "because" clauses, the 5-claim cap
 warning, and classification cases), the evidence gate (pass, each missing
 element, and Inconclusive/progress semantics), the cap logic, the agent
 jobs (demo quotes in job order, one counter-offer accepted at most 4
 over plan and rejected above that, do-vs-buy, allowed/blocked/cut, and
-per-job receipts in the export), cap validation, and claim editing.
+per-job receipts in the export), cap validation, claim editing, and
+the share-link tests (percent-decoding, `+` decoding, missing/empty/
+blank handling, markup payload staying a plain string, and
+encode/decode round-trip).
 
 ## Phase 3 — live quote and testnet escrow (testnet only)
 
@@ -302,6 +307,12 @@ per-job receipts in the export), cap validation, and claim editing.
 - Demo post on X: **published 1 Nov 2026** as a 4-post thread by
   @Cryptogiives, with 3 screenshots of the working demo attached:
   https://x.com/Cryptogiives/status/2116831337407779257
+- Demo video: **recorded and published 1 Nov 2026** — YouTube Public
+  https://youtu.be/IvkHyNL2vGo (title "Thesis Agent — NEAR Hackathon
+  Demo", channel Reel Rush Daily) and X reply
+  https://x.com/Cryptogiives/status/2116866025144946780 (reply to the
+  demo thread, video attached). No win, payment, or live transaction
+  is claimed in the video.
 - Final submission: **saved via the official API on 1 Nov 2026
   (HTTP 201)**. The submission form itself cannot be edited after sending,
   and this repository cannot be submitted again. Updates to the repository

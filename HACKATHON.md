@@ -75,8 +75,9 @@ runs entirely as a static web page, with no backend, no paid API, and no keys.
   local evidence format gate (named source, date, openable reference,
   format check only), the per-job agent loop as a labelled demo
   (demo quotes, do-vs-buy, one counter-offer, per-job receipts, cut),
-  cap validation, local-only persistence, claim edit/delete, and a
-  real test suite (`npm test`, 36 tests).
+  cap validation, local-only persistence, claim edit/delete, the
+  `?thesis=` share link, and a
+  real test suite (`npm test`, 41 tests).
 - **Real, NEAR, quote-only:** a live NEAR Intents 1Click dry quote
   (dry: true only, POST https://1click.chaindefuser.com/v0/quote, no
   deposit address, no payment). Verified live on 1 Nov 2026: 1.0 USDC
@@ -123,11 +124,14 @@ is mandatory.
   https://x.com/Cryptogiives/status/2116831337407779257
   It says the project was built at NEAR HACKATHON, tags @NEARProtocol
   and #NEARHackathon, and links this repository.
-- **Demo video:** Prepared for private review in Phase 0 (see
-  `demo-video/` in the working copy; not published). See `demo-script.md`
-  for the outline (under 3 minutes, one complete moment: type a thesis,
-  see the plan, mark one part, download the plan). No video has been
-  published on the builder's behalf.
+- **Demo video:** **Recorded and published 1 Nov 2026** — YouTube
+  Public https://youtu.be/IvkHyNL2vGo (title "Thesis Agent — NEAR
+  Hackathon Demo", channel Reel Rush Daily) and X reply
+  https://x.com/Cryptogiives/status/2116866025144946780 (reply to the
+  demo thread, video attached). See `demo-script.md` for the outline
+  (under 3 minutes, one complete moment: type a thesis, see the plan,
+  mark one part, download the plan). No win, payment, or live
+  transaction is claimed in the video.
 - **Final submission:** **Saved via the official API on 1 Nov 2026
   (HTTP 201).** The submission form itself cannot be edited after
   sending, and this repository cannot be submitted again. Do not create
