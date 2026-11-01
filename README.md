@@ -126,6 +126,13 @@ No build step, no server, no install, no keys, no account needed.
   as "Not yet tested" with no evidence note.
 - **Do X:** Press "Show the NEAR plug-in point (dry run)".
   **See Y:** A clearly labelled DRY RUN object. No transaction is sent.
+- **Do X:** Press "Get a live quote (dry run, no payment)".
+  **See Y:** Either a LIVE QUOTE (DRY RUN, NO PAYMENT) box with the
+  live in/out amounts and time estimate actually received, or, if
+  the live call cannot be reached in that browser, a LOCAL FALLBACK
+  box naming the failure and showing the local dry-run object
+  instead. No quote value is ever shown as live unless it was
+  received from the API.
 
 ## What is real, and what is demo only
 
@@ -144,6 +151,14 @@ No build step, no server, no install, no keys, no account needed.
   one counter-offer per job, per-job receipts in the Markdown export,
   cap validation, local-only persistence, and claim edit/delete, all
   covered by the test suite.
+- A real, free, quote-only NEAR Intents dry quote: pressing the live
+  quote button in Step 3 calls the public 1Click API with dry: true
+  only (see `near-integration.js`: endpoint, exact request body,
+  and response parsing). The verified live result on 1 Nov 2026
+  was 1.0 USDC in to about 0.9998 USDC out, time estimate 25, HTTP
+  201, with no deposit address in the response. Values change with
+  the market; the demo always shows the value it actually received,
+  and falls back to the local object if the call fails.
 
 **Demo only, clearly labelled in the app and in code:**
 
@@ -153,29 +168,33 @@ No build step, no server, no install, no keys, no account needed.
   agent, and demo checkers are named demo checkers, not accounts.
   A counter-offer accepted in the demo is not a real negotiation, and
   a receipt in the download is a demo receipt, not proof of a purchase.
-- The NEAR integration in `near-integration.js`. It builds a dry-run,
-  intent-shaped object locally and **never sends it anywhere**. It opens no
-  wallet, signs nothing, and produces no transaction hash, balance, or result.
-  A real NEAR Intents call would plug in at
-  `NearIntegration.buildNearIntentDryRun()` in `near-integration.js`, and
-  would require the user's own NEAR testnet account and explicit approval
-  before any quote or submission. That step is future work, not part of
-  this demo, and nothing in this repository should be read as a completed
-  on-chain payment.
+- The NEAR integration in `near-integration.js`. Its dry-run part builds a
+  dry-run, intent-shaped object locally and **never sends it anywhere**.
+  It opens no wallet, signs nothing, and produces no transaction hash,
+  balance, or result. Separately, its live-quote part does make one
+  real network call — a dry: true quote request only, which commits
+  nothing, issues no deposit address, and moves no money (see the
+  live-quote bullet above). A real payment or signed submission would
+  still require the user's own NEAR testnet account and explicit
+  approval, is not part of this demo, and nothing in this repository
+  should be read as a completed on-chain payment.
 
 **Not claimed:**
 
 - No real NEAR mainnet or testnet transaction, no real balance, no real
-  payout, no live NEAR Intents quote, and no use of NEAR AI Cloud or any
-  paid API. The hackathon's own HACKATHON.md states that no integration is
-  mandatory and a testnet-only project is eligible, and this prototype is
-  presented on that honest basis.
+  payout, and no use of NEAR AI Cloud or any paid API. A live NEAR
+  Intents dry quote (quote-only, no payment) IS now included — see
+  above — but it is not a transaction, a balance, or a payout, and
+  must not be read as one. The hackathon's own HACKATHON.md states
+  that no integration is mandatory and a testnet-only project is
+  eligible, and this prototype is presented on that honest basis.
 
 ## Files
 
 - `index.html` — the demo page (open this file).
 - `app.js` — the breakdown and test-plan logic, no network calls.
-- `near-integration.js` — the labelled dry-run NEAR plug-in point.
+- `near-integration.js` — the labelled dry-run NEAR plug-in point, plus the real dry: true live-quote request (never dry: false, never a deposit).
+- `contract/` — the testnet escrow contract source (Rust, near-sdk 5); no keys, no credentials in this folder.
 - `package.json` — `npm test` runs the test suite, no dependencies.
 - `test.js` — the test suite: README example, breakdown failure cases,
   evidence gate, cap logic, agent jobs (quotes, counter-offer,
@@ -198,19 +217,21 @@ thesis -> break into checkable parts -> measure + evidence plan per part
      -> one counter-offer when above plan -> allowed / blocked / cut
      -> per-job receipt in the Markdown export
   -> spending cap (demo units, validated) -> NEAR plug-in point (dry run only)
+  -> live quote button (dry: true only, live value or honest local fallback)
   -> plan saved in this browser only (localStorage, no server)
 ```
 
 The agent loop above is a labelled demo, not a live payment, hire, or
-quote. A real NEAR quote (dry, quote-only) and a testnet escrow
-contract are Phase 3 work, subject to a separate review, and are not built
-here.
+real quote. The live quote above is real but dry-only: it quotes a
+price, it does not pay, hire, or move money. A testnet escrow contract
+is Phase 3 work, subject to a separate review; its status is recorded
+in the Phase 3 section below.
 
 Key policy, as currently true: there is no wallet, no key, and no secret
-in this repository or in the demo. The NEAR integration is a dry-run
-object built locally and never sent. A real integration would need the
-user's own NEAR testnet account and explicit approval first, and no key
-would ever be stored by this demo.
+in this repository or in the demo. The dry-run object is built locally
+and never sent. The live quote is an unauthenticated, quote-only API
+call that needs no key and moves no funds, and no key would ever be
+stored by this demo.
 
 ## Tests (local, no network)
 
@@ -218,7 +239,7 @@ would ever be stored by this demo.
 npm test
 ```
 
-Expected output: all 32 tests pass, including the README example with
+Expected output: all 36 tests pass, including the README example with
 exactly 3 claims, the breakdown failure cases (short fragments, leading
 connectors, leading and multiple "because" clauses, the 5-claim cap
 warning, and classification cases), the evidence gate (pass, each missing
@@ -226,6 +247,44 @@ element, and Inconclusive/progress semantics), the cap logic, the agent
 jobs (demo quotes in job order, one counter-offer accepted at most 4
 over plan and rejected above that, do-vs-buy, allowed/blocked/cut, and
 per-job receipts in the export), cap validation, and claim editing.
+
+## Phase 3 — live quote and testnet escrow (testnet only)
+
+- **Live quote (dry only):** see step 8 in "What this prototype does"
+  and `near-integration.js`. Endpoint POST
+  https://1click.chaindefuser.com/v0/quote, dry: true only, never
+  dry: false, never a deposit. Verified live 1 Nov 2026: 1.0 USDC in
+  to about 0.9998 USDC out, time estimate 25, HTTP 201, no deposit
+  address in the response. CORS: the API answers OPTIONS with
+  Access-Control-Allow-Origin: * (verified 1 Nov 2026).
+- **Testnet escrow contract:** source in `contract/` (Rust, near-sdk 5).
+  Contract account (testnet, throwaway, agent-created for this demo
+  only, never the mainnet prize payout account):
+  thesis-agent-escrow2.testnet. Checker account (testnet, throwaway):
+  thesis-agent-checker1.testnet. Deploy + initialise:
+  https://testnet.nearblocks.io/txns/guT4svwMB79VAgaMZQbM7hDwhMR9mJmavXWCUMAPVwr
+  Job 1 release path: created
+  https://testnet.nearblocks.io/txns/GuTHMZfjsVHRkv9EDuWCQocR8H975SfpgVk5tNVmVyXb ,
+  evidence recorded
+  https://testnet.nearblocks.io/txns/B167T1QemUsEA755MCTG9V1QWC5rqBmpJ8x7aN5Zyug8 ,
+  marked passed
+  https://testnet.nearblocks.io/txns/4jEjdXjXpacyVEM82oAKywsqVhvBGLNXMz9vrrdqAKLi ,
+  released
+  https://testnet.nearblocks.io/txns/GQ8Wq1MvMJWbzGrpmCYzHU1nAC17SmBcbff8bVfhPUYr
+  (final state: passed true, status "released"). Job 2 walk-away
+  path: created
+  https://testnet.nearblocks.io/txns/jvcSJc69FEat5jf6SMf1DSV7Ds13b3GuE4egengkyhF ,
+  mark_passed with no evidence FAILED on chain (enforcement works),
+  refunded
+  https://testnet.nearblocks.io/txns/EfvCGu2oDJzKtWa3PvwTTwFAtWDm71d38St86PdhL5ph
+  (final state: passed false, status "refunded"). All amounts were
+  0.01 testnet NEAR per job, free testnet tokens only. No private key
+  or seed phrase is in this repository.
+- **Key policy:** the testnet accounts above are throwaway, testnet
+  only, never reused, and their keys live only in the deployment
+  tool's local credential store, never in the repo. The mainnet prize
+  payout account revival.user.intear.near was not used for any test,
+  deployment, or spending in this phase.
 
 ## Submission status — read before judging
 

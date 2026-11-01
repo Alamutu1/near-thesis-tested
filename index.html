@@ -68,7 +68,7 @@
     <h2>Step 3: How an agent would be paid for this work</h2>
     <div class="demo-note">
       <strong>DEMO DESIGN ONLY, not a live NEAR payment.</strong>
-      In a full version, a checker agent would be hired for one sub-claim at a time, and paid only after it records a named, dated, openable evidence link. That payment step is not built here, and no transaction is shown as real. The job list below is that loop as a labelled demo: demo quotes, one counter-offer per job, a do-vs-buy line, and a receipt per job in the download. Nothing here is bought, hired, or quoted by a real agent.
+      In a full version, a checker agent would be hired for one sub-claim at a time, and paid only after it records a named, dated, openable evidence link. The job list below is that loop as a labelled demo: demo quotes, one counter-offer per job, a do-vs-buy line, and a receipt per job in the download. Nothing here is bought, hired, or quoted by a real agent. Separately, that payment rule IS proven on testnet by the escrow contract in the repository (contract/, thesis-agent-escrow2.testnet, testnet only) — but this page itself has no wallet and moves no money, and the live quote button below is dry-only, not a payment.
     </div>
     <label for="budgetCap">Your spending cap (demo units only)</label>
     <input type="text" id="budgetCap" value="30" inputmode="numeric">
@@ -80,12 +80,16 @@
     <pre id="nearDryRun" hidden></pre>
     <p><button id="showNearBtn" type="button" class="secondary">Show the NEAR plug-in point (dry run)</button></p>
     <p class="muted">See <code>near-integration.js</code> for the exact code path. A real NEAR Intents call would need the user's own testnet account and approval, and is not part of this demo.</p>
+    <p><button id="liveQuoteBtn" type="button" class="secondary">Get a live quote (dry run, no payment)</button></p>
+    <pre id="liveQuote" hidden></pre>
+    <p class="muted">Live quote example, quote-only: 1 USDC on Arbitrum to USDC on Solana, requested with dry: true from the NEAR Intents 1Click API. The recipient is the example label "thesis-agent-demo.near" (Intents type), not a real wallet, and no funds are sent to it. If the live call fails or is blocked in this browser, the demo shows the local dry-run object instead and says so, rather than faking a quote value. A dry quote is not a payment, and no deposit address is ever issued here.</p>
   </div>
 
   <div class="card">
     <h2>Why NEAR, and not just any chain</h2>
-    <p>This is a design claim, not a live integration. The reason it fits NEAR is specific: a checker agent may live on one chain and be paid from another, and NEAR Intents are built for exactly that kind of cross-chain intent, stated once and settled where the work happens, without the user bridging wallets by hand. The spending cap above is the other half: an agent that can spend, but only inside limits the user sets, and only released when evidence is recorded. That is the Agent Economy idea in one sentence: hire an agent for a verifiable job, pay it only for that job, and never hand it the keys to everything.</p>
-    <p class="muted">If that payment rail is not built, this is still a working thesis-testing tool. The NEAR part is the reason it would scale as an agent market, not the reason the demo opens.</p>
+    <p>The reason it fits NEAR is specific: a checker agent may live on one chain and be paid from another, and NEAR Intents are built for exactly that kind of cross-chain intent, stated once and settled where the work happens, without the user bridging wallets by hand. The spending cap above is the other half: an agent that can spend, but only inside limits the user sets, and only released when evidence is recorded. That is the Agent Economy idea in one sentence: hire an agent for a verifiable job, pay it only for that job, and never hand it the keys to everything.</p>
+    <p>Two real, limited NEAR proofs now exist alongside this page, and are documented in README.md and HACKATHON.md: a dry-only live Intents quote (the button in Step 3, no payment, no deposit address) and a testnet escrow contract (thesis-agent-escrow2.testnet, testnet only, with real testnet release and refund transactions). This page itself still has no wallet and moves no money.</p>
+    <p class="muted">If those proofs did not exist, this would still be a working thesis-testing tool. The NEAR part is the reason it would scale as an agent market, not the reason the demo opens.</p>
   </div>
 
   <div class="card">
@@ -452,6 +456,28 @@
     if (!current) { pre.hidden = false; pre.textContent = 'Break a thesis down first, then press this button again.'; return; }
     pre.hidden = false;
     pre.textContent = JSON.stringify(NearIntegration.buildNearIntentDryRun(current), null, 2);
+  });
+
+  document.getElementById('liveQuoteBtn').addEventListener('click', function () {
+    var pre = document.getElementById('liveQuote');
+    pre.hidden = false;
+    pre.textContent = 'Requesting a live dry quote (dry: true, no payment)…';
+    NearIntegration.fetchLiveQuote().then(function (quote) {
+      pre.textContent = 'LIVE QUOTE (DRY RUN, NO PAYMENT)\n'
+        + quote.originLabel + ' -> ' + quote.destinationLabel + '\n'
+        + 'In: ' + quote.amountInFormatted + ' (about $' + quote.amountInUsd + ')\n'
+        + 'Out: ' + quote.amountOutFormatted + ' (about $' + quote.amountOutUsd + ')\n'
+        + 'Time estimate: ' + quote.timeEstimate + '\n'
+        + quote.note;
+    }, function (err) {
+      // Honest fallback: never fake a quote value. Show the local
+      // dry-run object and the exact reason the live call failed.
+      var local = current ? NearIntegration.buildNearIntentDryRun(current) : null;
+      pre.textContent = 'LOCAL FALLBACK — live quote unavailable in this browser.\n'
+        + 'Reason: ' + (err && err.message ? err.message : 'unknown error') + '\n'
+        + 'No quote value is shown as live here, because none was received. The local dry-run object below is the fallback:\n'
+        + JSON.stringify(local, null, 2);
+    });
   });
 
   document.getElementById('copyBtn').addEventListener('click', function () {
