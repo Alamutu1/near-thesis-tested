@@ -7,6 +7,7 @@ checkable sub-claims, each with a way to measure it, the evidence it needs, and 
 pass rule. You add the evidence yourself and mark each part. The demo never marks
 a claim true or false on its own.
 
+- **Hosted demo, open directly (judges can open this without downloading anything):** https://thesis-agent.netlify.app/
 - **Event:** NEAR HACKATHON, 1 Nov 2026 00:00 UTC to 14 Nov 2026 23:59 UTC
 - **Track:** Agent Economy (`agents`)
 - **Team:** Solo, by Cryptoearn Gives
@@ -68,7 +69,9 @@ stated pass rule. Readers are left to argue about the whole sentence at once.
 
 No build step, no server, no install, no keys, no account needed.
 
-- **Do X:** Open `index.html` in any modern browser, on a phone or a computer.
+- **Do X:** Open the hosted demo directly at https://thesis-agent.netlify.app/ in any modern browser, on a phone or a computer.
+  **See Y:** The Thesis Agent page, with a text box and three example buttons.
+- **Do X (local alternative):** Open `index.html` in any modern browser, on a phone or a computer.
   **See Y:** The Thesis Agent page, with a text box and three example buttons.
 - **Do X:** Press "Try example 1", then "Break it down".
   **See Y:** A test plan for "Small businesses lose money because they do not

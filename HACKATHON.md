@@ -17,6 +17,7 @@ file for this repository, not a copy of the official file.
 - **Development window:** 1 Nov 2026 00:00 UTC to 14 Nov 2026 23:59 UTC
 - **Judging:** 16–18 Nov 2026; results by 18 Nov 2026 23:59 UTC
 - **Prize pool (event total):** $250,000
+- **Hosted demo, open directly (judges can open this without downloading anything):** https://thesis-agent.netlify.app/
 
 ## What it is
 
@@ -27,18 +28,20 @@ runs entirely as a static web page, with no backend, no paid API, and no keys.
 
 ## How to try it — do X, see Y
 
-1. **Do X:** Open `index.html` in a browser.
+1. **Do X:** Open the hosted demo directly at https://thesis-agent.netlify.app/ in a browser.
    **See Y:** The Thesis Agent page, with a thesis box and example buttons.
-2. **Do X:** Press "Try example 1", then "Break it down".
+2. **Do X (local alternative):** Open `index.html` in a browser.
+   **See Y:** The Thesis Agent page, with a thesis box and example buttons.
+3. **Do X:** Press "Try example 1", then "Break it down".
    **See Y:** A test plan for "Small businesses lose money because they do
    not track who owes them", with each part starting as "Not yet tested".
-3. **Do X:** Add an evidence note to one part and change its status.
+4. **Do X:** Add an evidence note to one part and change its status.
    **See Y:** The status text changes and the progress bar moves.
-4. **Do X:** Press "Copy test plan as text" or "Download test plan (.md)".
+5. **Do X:** Press "Copy test plan as text" or "Download test plan (.md)".
    **See Y:** The full plan, including your notes and statuses.
-5. **Do X:** Change the spending cap to 10, with a 3-part plan on screen.
+6. **Do X:** Change the spending cap to 10, with a 3-part plan on screen.
    **See Y:** A "Blocked by your cap" note, showing only 1 of 3 jobs fits.
-6. **Do X:** Press "Show the NEAR plug-in point (dry run)".
+7. **Do X:** Press "Show the NEAR plug-in point (dry run)".
    **See Y:** A DRY RUN object, clearly labelled as not submitted, not
    signed, and not a transaction.
 
