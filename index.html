@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thesis Agent: NEAR HACKATHON demo</title>
+<style>
+  body { font-family: system-ui, -apple-system, Arial, sans-serif; margin: 0; background: #f4f2ec; color: #1d1d1d; line-height: 1.5; }
+  main { max-width: 760px; margin: 0 auto; padding: 20px 16px 48px; }
+  h1 { font-size: 30px; margin-bottom: 4px; }
+  h2 { font-size: 20px; margin-top: 28px; }
+  .tag { display: inline-block; background: #1d1d1d; color: #fff; padding: 4px 10px; border-radius: 999px; font-size: 13px; }
+  .card { background: #fff; border: 1px solid #ddd; border-radius: 12px; padding: 16px; margin-top: 14px; }
+  textarea { width: 100%; min-height: 110px; font-size: 17px; padding: 12px; box-sizing: border-box; border: 1px solid #999; border-radius: 8px; }
+  button { font-size: 16px; padding: 12px 18px; border: 0; border-radius: 8px; background: #0057a8; color: #fff; cursor: pointer; margin: 6px 6px 0 0; }
+  button.secondary { background: #e8e4da; color: #1d1d1d; }
+  select, input[type="text"] { font-size: 15px; padding: 8px; border: 1px solid #999; border-radius: 6px; width: 100%; box-sizing: border-box; }
+  label { font-weight: 700; display: block; margin-top: 12px; }
+  .error { color: #a30000; font-weight: 700; }
+  .status { font-weight: 700; }
+  .muted { color: #555; }
+  .progress { height: 12px; background: #e8e4da; border-radius: 999px; overflow: hidden; }
+  .progress > div { height: 100%; background: #1e8a4c; width: 0%; }
+  .demo-note { background: #fff7cc; border: 1px solid #d9b800; border-radius: 8px; padding: 12px; }
+  pre { white-space: pre-wrap; word-break: break-word; background: #f4f2ec; padding: 12px; border-radius: 8px; font-size: 13px; }
+  a { color: #0057a8; }
+</style>
+</head>
+<body>
+<main>
+  <span class="tag">NEAR HACKATHON · Agent Economy</span>
+  <h1>Thesis Agent</h1>
+  <p>Take a thesis or claim, break it into parts you can actually check, and build a test plan for each part. No verdict is given for you. You add the evidence, then you mark each part yourself.</p>
+  <p class="muted">Built by Cryptoearn Gives, solo. This demo runs entirely in your browser. It sends nothing anywhere, signs nothing, and moves no money.</p>
+
+  <div class="card">
+    <label for="thesis">Step 1: Type a thesis or claim</label>
+    <textarea id="thesis" placeholder="Example: Small businesses lose money because they do not track who owes them."></textarea>
+    <p>
+      <button id="analyseBtn" type="button">Break it down</button>
+      <button id="example1" class="secondary" type="button">Try example 1</button>
+      <button id="example2" class="secondary" type="button">Try example 2</button>
+      <button id="example3" class="secondary" type="button">Try example 3</button>
+    </p>
+    <p id="error" class="error" role="alert"></p>
+  </div>
+
+  <div id="results" hidden>
+    <h2>Step 2: Your test plan</h2>
+    <p id="summary"></p>
+    <div class="progress" aria-label="Test plan progress"><div id="progressBar"></div></div>
+    <p id="progressText" class="muted"></p>
+    <div id="claims"></div>
+    <p>
+      <button id="copyBtn" type="button">Copy test plan as text</button>
+      <button id="downloadBtn" type="button" class="secondary">Download test plan (.md)</button>
+    </p>
+    <p id="copyNote" class="muted"></p>
+  </div>
+
+  <div class="card">
+    <h2>Step 3: How an agent would be paid for this work</h2>
+    <div class="demo-note">
+      <strong>DEMO DESIGN ONLY, not a live NEAR payment.</strong>
+      In a full version, a checker agent would be hired for one sub-claim at a time, and paid only after it records a named, dated, openable evidence link. That payment step is not built here, and no transaction is shown as real.
+    </div>
+    <label for="budgetCap">Your spending cap (demo units only)</label>
+    <input type="text" id="budgetCap" value="30" inputmode="numeric">
+    <p class="muted">The agent may not exceed this cap. If the job list costs more than the cap, the extra jobs stay blocked until you raise the cap or cut the scope. This is the spending guardrail: an agent with a wallet, but with limits you set.</p>
+    <p id="agentLedger" class="muted">Break a thesis down first, and the agent job list will appear here.</p>
+    <p id="budgetNote" class="muted"></p>
+    <pre id="nearDryRun" hidden></pre>
+    <p><button id="showNearBtn" type="button" class="secondary">Show the NEAR plug-in point (dry run)</button></p>
+    <p class="muted">See <code>near-integration.js</code> for the exact code path. A real NEAR Intents call would need the user's own testnet account and approval, and is not part of this demo.</p>
+  </div>
+
+  <div class="card">
+    <h2>Why NEAR, and not just any chain</h2>
+    <p>This is a design claim, not a live integration. The reason it fits NEAR is specific: a checker agent may live on one chain and be paid from another, and NEAR Intents are built for exactly that kind of cross-chain intent, stated once and settled where the work happens, without the user bridging wallets by hand. The spending cap above is the other half: an agent that can spend, but only inside limits the user sets, and only released when evidence is recorded. That is the Agent Economy idea in one sentence: hire an agent for a verifiable job, pay it only for that job, and never hand it the keys to everything.</p>
+    <p class="muted">If that payment rail is not built, this is still a working thesis-testing tool. The NEAR part is the reason it would scale as an agent market, not the reason the demo opens.</p>
+  </div>
+
+  <div class="card">
+    <h2>Try it yourself</h2>
+    <ol>
+      <li>Type a thesis, then press "Break it down", then see a structured list of checkable parts.</li>
+      <li>For each part, add an evidence note, then change its status from "Not yet tested", then see the progress bar move.</li>
+      <li>Press "Copy test plan as text" or "Download test plan (.md)", then see the full plan, with your notes included.</li>
+    </ol>
+    <p class="muted">Full details, including what is real and what is demo only, are in <a href="README.md">README.md</a> and <a href="HACKATHON.md">HACKATHON.md</a>.</p>
+  </div>
+</main>
+<script src="app.js"></script>
+<script src="near-integration.js"></script>
+<script>
+  var thesisEl = document.getElementById('thesis');
+  var errorEl = document.getElementById('error');
+  var resultsEl = document.getElementById('results');
+  var claimsEl = document.getElementById('claims');
+  var summaryEl = document.getElementById('summary');
+  var progressBar = document.getElementById('progressBar');
+  var progressText = document.getElementById('progressText');
+  var agentLedger = document.getElementById('agentLedger');
+  var current = null;
+
+  function example(text) { thesisEl.value = text; thesisEl.focus(); }
+
+  document.getElementById('example1').addEventListener('click', function () {
+    example('Small businesses lose money because they do not track who owes them.');
+  });
+  document.getElementById('example2').addEventListener('click', function () {
+    example('Remote work increases productivity for customer support teams.');
+  });
+  document.getElementById('example3').addEventListener('click', function () {
+    example('Cross-chain payments will be cheaper than single-chain payments for small traders.');
+  });
+
+  function updateProgress() {
+    if (!current) return;
+    var done = current.claims.filter(function (c) { return c.status !== 'Not yet tested'; }).length;
+    var pct = Math.round(done / current.claims.length * 100);
+    progressBar.style.width = pct + '%';
+    progressText.textContent = done + ' of ' + current.claims.length + ' parts marked (' + pct + '%).';
+  }
+
+  function render() {
+    summaryEl.textContent = current.summary;
+    claimsEl.innerHTML = '';
+    current.claims.forEach(function (c) {
+      var div = document.createElement('div');
+      div.className = 'card';
+      var noteId = 'note-' + c.id;
+      var statusId = 'status-' + c.id;
+      div.innerHTML =
+        '<h3>' + c.id + '. ' + c.role + ': ' + c.kind + '</h3>' +
+        '<p>' + escapeHtml(c.text) + '</p>' +
+        '<p><strong>How to measure:</strong> ' + escapeHtml(c.measure) + '</p>' +
+        '<p><strong>Evidence needed:</strong> ' + escapeHtml(c.evidence) + '</p>' +
+        '<p><strong>Pass rule:</strong> ' + escapeHtml(c.passRule) + '</p>' +
+        '<label for="' + noteId + '">Evidence note (a link, a document name, or a number)</label>' +
+        '<input type="text" id="' + noteId + '" placeholder="Example: sales ledger, March 2026">' +
+        '<label for="' + statusId + '">Status (you decide)</label>' +
+        '<select id="' + statusId + '">' +
+        '<option>Not yet tested</option><option>Supported by evidence</option>' +
+        '<option>Not supported by evidence</option><option>Inconclusive</option></select>' +
+        '<p class="status">Status: <span id="statusText-' + c.id + '">Not yet tested</span></p>';
+      claimsEl.appendChild(div);
+      document.getElementById(noteId).addEventListener('input', function (e) { c.note = e.target.value; });
+      document.getElementById(statusId).addEventListener('change', function (e) {
+        c.status = e.target.value;
+        document.getElementById('statusText-' + c.id).textContent = c.status;
+        updateProgress();
+      });
+    });
+    var cost = current.claims.length * 10;
+    var cap = parseInt(document.getElementById('budgetCap').value, 10);
+    if (isNaN(cap)) cap = 30;
+    agentLedger.textContent = 'Agent jobs: ' + current.claims.length + ' checker jobs, one per sub-claim. Demo cost: ' +
+      cost + ' demo units (10 per job). Cap: ' + cap + ' demo units. No real payment is made or promised.';
+    document.getElementById('budgetNote').textContent = cost > cap
+      ? ('Blocked by your cap: ' + (cost - cap) + ' demo units over budget. ' + Math.floor(cap / 10) + ' of ' + current.claims.length + ' jobs fit inside the cap.')
+      : ('Inside your cap: all ' + current.claims.length + ' jobs fit, with ' + (cap - cost) + ' demo units left.');
+    resultsEl.hidden = false;
+    updateProgress();
+  }
+
+  function updateBudget() {
+    if (!current) return;
+    var cost = current.claims.length * 10;
+    var cap = parseInt(document.getElementById('budgetCap').value, 10);
+    if (isNaN(cap)) cap = 30;
+    agentLedger.textContent = 'Agent jobs: ' + current.claims.length + ' checker jobs, one per sub-claim. Demo cost: ' +
+      cost + ' demo units (10 per job). Cap: ' + cap + ' demo units. No real payment is made or promised.';
+    document.getElementById('budgetNote').textContent = cost > cap
+      ? ('Blocked by your cap: ' + (cost - cap) + ' demo units over budget. ' + Math.floor(cap / 10) + ' of ' + current.claims.length + ' jobs fit inside the cap.')
+      : ('Inside your cap: all ' + current.claims.length + ' jobs fit, with ' + (cap - cost) + ' demo units left.');
+  }
+  document.getElementById('budgetCap').addEventListener('input', updateBudget);
+
+  function escapeHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  document.getElementById('analyseBtn').addEventListener('click', function () {
+    var result = ThesisAgent.analyseThesis(thesisEl.value);
+    if (result.error) { errorEl.textContent = result.error; resultsEl.hidden = true; current = null; return; }
+    errorEl.textContent = '';
+    current = result;
+    document.getElementById('nearDryRun').hidden = true;
+    render();
+    resultsEl.scrollIntoView();
+  });
+
+  document.getElementById('showNearBtn').addEventListener('click', function () {
+    var pre = document.getElementById('nearDryRun');
+    if (!current) { pre.hidden = false; pre.textContent = 'Break a thesis down first, then press this button again.'; return; }
+    pre.hidden = false;
+    pre.textContent = JSON.stringify(NearIntegration.buildNearIntentDryRun(current), null, 2);
+  });
+
+  document.getElementById('copyBtn').addEventListener('click', function () {
+    if (!current) return;
+    navigator.clipboard.writeText(ThesisAgent.planAsMarkdown(current)).then(function () {
+      document.getElementById('copyNote').textContent = 'Copied. Paste it anywhere to keep your test plan.';
+    }, function () {
+      document.getElementById('copyNote').textContent = 'Copy was blocked by the browser. Use Download instead.';
+    });
+  });
+
+  document.getElementById('downloadBtn').addEventListener('click', function () {
+    if (!current) return;
+    var blob = new Blob([ThesisAgent.planAsMarkdown(current)], { type: 'text/markdown' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'thesis-test-plan.md';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+</script>
+</body>
+</html>
