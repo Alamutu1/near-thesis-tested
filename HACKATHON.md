@@ -1,7 +1,7 @@
 # HACKATHON.md — Thesis Agent (this project)
 
-## Release note — 2 Nov 2026 (release candidate, prepared for review, not yet published)
-This release candidate includes the corrections and improvements documented below, made after the original submission. It has not yet been published to the public repository or live demo. If approved and released, this documentation will describe the corresponding released version.
+## Release note — 2 Nov 2026 (released 2 Nov 2026)
+This release includes the corrections and improvements documented below, made after the original submission. It has been published to the public repository and live demo. This documentation describes the released version.
 
 This file follows the guidance in the official NEAR HACKATHON HACKATHON.md
 (https://nearhackathon.com/HACKATHON.md, read 1 Nov 2026). It is the project
@@ -200,9 +200,9 @@ money, and no key from this repository.
 MIT. See `LICENSE`.
 
 
-## Post-submission improvements — release candidate prepared 2 Nov 2026, NOT yet pushed to main or redeployed
+## Post-submission improvements — released 2 Nov 2026, pushed to main and redeployed
 
-Work was done after the original submission, in a separate development copy, and is included in this release candidate. The original submitted version is preserved untouched in the frozen snapshot (near-hackathon-frozen-20261101-b4aeee4) and on main. No mainnet, no real money, no paid services.
+Work was done after the original submission, in a separate development copy, and is included in this release. The original submitted version is preserved untouched in the frozen snapshot (near-hackathon-frozen-20261101-b4aeee4) and on main. No mainnet, no real money, no paid services.
 
 ### Phase 1 — Three-tier evidence verification (demo only)
 - A note now reports one of: Verified reachable (URL in the note returned HTTP 2xx on a live check), Format only (named, dated, openable format passes, but live check was not run, failed, or returned non-2xx, or the note has only a document name), or Failed (format fails).
