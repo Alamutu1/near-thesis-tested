@@ -1,7 +1,10 @@
 // NEAR integration — DEMO DESIGN ONLY. Read this file before judging.
-// This file makes NO network call, opens NO wallet, signs NOTHING,
-// and moves NO money. It exists so a judge can see exactly where a
-// real NEAR call would plug in, without any fake transaction.
+// Core object construction in this file makes no network call, opens
+// NO wallet, signs NOTHING, and moves NO money. The optional live-quote
+// function makes a network request only when the user presses the
+// live-quote button, with dry: true only (see R6 below). This file
+// exists so a judge can see exactly where a real NEAR call would
+// plug in, without any fake transaction.
 //
 // Where a real call would go (future work, needs the user's own
 // NEAR account and approval, and is NOT part of this demo):
