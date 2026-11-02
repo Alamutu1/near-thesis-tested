@@ -6,15 +6,17 @@
 <title>Thesis Agent: NEAR HACKATHON demo</title>
 <style>
   body { font-family: system-ui, -apple-system, Arial, sans-serif; margin: 0; background: #f4f2ec; color: #1d1d1d; line-height: 1.5; }
-  main { max-width: 760px; margin: 0 auto; padding: 20px 16px 48px; }
+  main { max-width: 760px; margin: 0 auto; padding: 20px 16px 48px; overflow-wrap: break-word; }
   h1 { font-size: 30px; margin-bottom: 4px; }
   h2 { font-size: 20px; margin-top: 28px; }
   .tag { display: inline-block; background: #1d1d1d; color: #fff; padding: 4px 10px; border-radius: 999px; font-size: 13px; }
   .card { background: #fff; border: 1px solid #ddd; border-radius: 12px; padding: 16px; margin-top: 14px; }
   textarea { width: 100%; min-height: 110px; font-size: 17px; padding: 12px; box-sizing: border-box; border: 1px solid #999; border-radius: 8px; }
-  button { font-size: 16px; padding: 12px 18px; border: 0; border-radius: 8px; background: #0057a8; color: #fff; cursor: pointer; margin: 6px 6px 0 0; }
+  button { font-size: 16px; padding: 12px 18px; border: 0; border-radius: 8px; background: #0057a8; color: #fff; cursor: pointer; margin: 6px 6px 0 0; min-height: 44px; }
   button.secondary { background: #e8e4da; color: #1d1d1d; }
-  select, input[type="text"] { font-size: 15px; padding: 8px; border: 1px solid #999; border-radius: 6px; width: 100%; box-sizing: border-box; }
+  button.primary { background: #0057a8; color: #fff; }
+  button.primary:active { background: #003f7a; }
+  select, input[type="text"] { font-size: 16px; padding: 8px; border: 1px solid #999; border-radius: 6px; width: 100%; box-sizing: border-box; }
   label { font-weight: 700; display: block; margin-top: 12px; }
   .error { color: #a30000; font-weight: 700; }
   .status { font-weight: 700; }
@@ -26,6 +28,13 @@
   .jobcard { border-left: 6px solid #0057a8; }
   .jobcard.blocked { border-left-color: #a30000; }
   .jobcard.cut { border-left-color: #888; opacity: 0.85; }
+  /* M2 fix: Chrome's scroll anchoring re-adjusts the page after a
+     DOM rebuild that inserts content above the tapped button, and
+     that adjustment can undo a programmatic scroll. Disabling
+     anchoring inside the job list only keeps a scroll to a
+     recommendation result stable on mobile. Normal scrolling is
+     unaffected. */
+  #jobList { overflow-anchor: none; }
   pre { white-space: pre-wrap; word-break: break-word; background: #f4f2ec; padding: 12px; border-radius: 8px; font-size: 13px; }
   a { color: #0057a8; }
 </style>
@@ -35,7 +44,7 @@
   <span class="tag">NEAR HACKATHON · Agent Economy</span>
   <h1>Thesis Agent</h1>
   <p>Take a thesis or claim, break it into parts you can actually check, and build a test plan for each part. No verdict is given for you. You add the evidence, then you mark each part yourself.</p>
-  <p class="muted">Built by Cryptoearn Gives, solo. This demo runs entirely in your browser. It sends nothing anywhere, signs nothing, and moves no money.</p>
+  <p class="muted">Built by Cryptoearn Gives, solo. The core thesis tool runs in your browser, signs nothing, and moves no money. Live quote, link check, and testnet proof panel send only the requests you trigger, described below.</p>
 
   <div class="card">
     <label for="thesis">Step 1: Type a thesis or claim</label>
@@ -84,6 +93,9 @@
     <p class="muted">See <code>near-integration.js</code> for the exact code path. A real NEAR Intents call would need the user's own testnet account and approval, and is not part of this demo.</p>
     <p><button id="liveQuoteBtn" type="button" class="secondary">Get a live quote (dry run, no payment)</button></p>
     <pre id="liveQuote" hidden></pre>
+    <p><button id="testnetProofBtn" type="button" class="secondary">Show live testnet escrow proof (read-only, no wallet)</button></p>
+    <pre id="testnetProof" hidden></pre>
+    <p class="muted">SEPARATE DEMONSTRATION, not a record of the demo jobs above: this button queries the NEAR testnet RPC for the escrow v2 contract with payer-only release control, v2.thesis-agent-escrow2.testnet, jobs job-v2-1 and job-v2-2. It signs nothing, moves no money, and needs no wallet. Reading blockchain records does not initiate or authorise a payment, and no demo job above has an actual escrow record unless that relationship is genuinely established. If the network or RPC is unavailable, this panel shows that fallback and the thesis tool above still works. Testnet only, free testnet NEAR only.</p>
     <p class="muted">Live quote example, quote-only: 1 USDC on Arbitrum to USDC on Solana, requested with dry: true from the NEAR Intents 1Click API. The recipient is the example label "thesis-agent-demo.near" (Intents type), not a real wallet, and no funds are sent to it. If the live call fails or is blocked in this browser, the demo shows the local dry-run object instead and says so, rather than faking a quote value. A dry quote is not a payment, and no deposit address is ever issued here.</p>
   </div>
 
@@ -120,27 +132,37 @@
   var current = null;
   var lastValidCap = 30;
   var STORAGE_KEY = 'thesis-agent-plan-v1';
+  // QA2-08: set by Clear saved plan, cleared only by Break it down.
+  // While set, savePlan must not recreate the cleared storage.
+  var planCleared = false;
 
   function savePlan() {
     try {
       if (!current) return;
+      if (planCleared) return;
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         thesis: current.thesis,
         cap: lastValidCap,
         cutClaimIds: current.jobs.filter(function (j) { return j.cut; }).map(function (j) { return j.claimId; }),
+        abandonedClaimIds: current.jobs.filter(function (j) { return j.abandoned; }).map(function (j) { return j.claimId; }),
+        jobs: current.jobs.map(function (j) { return { claimId: j.claimId, claimUid: j.claimUid, workState: j.workState, correctionRound: j.correctionRound, history: j.history, evaluation: j.evaluation, checks: j.checks, correctionRequest: j.correctionRequest, correctionHistory: j.correctionHistory, evaluationHistory: j.evaluationHistory, recommendation: j.recommendation, humanEvidenceConfirmation: !!j.humanEvidenceConfirmation, humanReview: j.humanReview || null, humanReviewHistory: j.humanReviewHistory || [], previouslyEscalated: !!j.previouslyEscalated }; }),
         capped: !!current.capped,
         cappedWarning: current.cappedWarning || '',
-        claims: current.claims.map(function (c) { return { text: c.text, role: c.role, note: c.note, status: c.status }; })
+        claims: current.claims.map(function (c) { return { text: c.text, role: c.role, note: c.note, status: c.status, uid: c.uid, evidenceVerification: c.evidenceVerification || null }; })
       }));
     } catch (e) { /* local storage unavailable: the demo still works, it just does not persist */ }
   }
 
-  function rebuildJobsPreservingCuts() {
+  function rebuildJobsPreservingCuts(preJobs, preClaims) {
     if (!current) return;
-    var cutIds = {};
-    (current.jobs || []).forEach(function (j) { if (j.cut) cutIds[j.claimId] = true; });
+    // QA D5: callers that changed a claim must pass pre-change
+    // snapshots, so preserveJobStates can see the text change and
+    // refuse to restore a stale Ready state. Without snapshots,
+    // the default is the current (post-change) snapshot, as before.
+    var oldJobs = preJobs || (current.jobs || []).map(function (j) { return JSON.parse(JSON.stringify(j)); });
+    var oldClaims = preClaims || (current.claims || []).map(function (c) { return { id: c.id, uid: c.uid, text: c.text, note: c.note || '' }; });
     current.jobs = ThesisAgent.buildAgentJobs(current.claims, lastValidCap).jobs;
-    current.jobs.forEach(function (j) { if (cutIds[j.claimId]) j.cut = true; });
+    ThesisAgent.preserveJobStates(oldJobs, oldClaims, current.jobs, current.claims);
     current.agentTotals = ThesisAgent.recomputeJobs(current.jobs, lastValidCap);
     current.cap = lastValidCap;
   }
@@ -149,6 +171,62 @@
     var jobList = document.getElementById('jobList');
     jobList.innerHTML = '';
     if (!current || !current.jobs) return;
+    // QA D10: inline errors replace blocking alert() dialogs. The
+    // error is shown on the job card and no state is changed.
+    // QA2-06: replace any previous error on this card (never stack
+    // them) and scroll the new error into view, so an error from a
+    // button near the top of a long card is not left below the
+    // visible screen on a small phone. Failed actions still change
+    // no state, and the blocking-alert ban from D10 is unchanged.
+    function showJobError(card, message) {
+      var oldErrors = card.querySelectorAll('.error');
+      for (var i = 0; i < oldErrors.length; i++) oldErrors[i].remove();
+      var p = document.createElement('p');
+      p.className = 'error';
+      p.setAttribute('role', 'alert');
+      p.textContent = message;
+      card.appendChild(p);
+      if (p.scrollIntoView) p.scrollIntoView();
+    }
+    // M2 fix: reliable mobile scroll to a recommendation result.
+    // The old code called scrollIntoView() synchronously in the
+    // same task as a full job-list rebuild. On Android Chrome the
+    // result block is inserted ABOVE the tapped button, so scroll
+    // anchoring and toolbar/viewport settling after that rebuild
+    // can move the page back toward the button, leaving the result
+    // above the visible screen. This helper instead waits for
+    // layout to settle (two animation frames), scrolls the window
+    // to the result heading's absolute document top, and then
+    // checks the heading's position and scrolls once more if it
+    // is still not near the top of the viewport. It lands at the
+    // beginning of the result; it does not try to fit the whole
+    // long result into the viewport.
+    function scrollRecommendationIntoView(jobId) {
+      var el = document.getElementById('recommendation-' + jobId);
+      if (!el) {
+        var card = document.getElementById('jobcard-' + jobId);
+        if (card) window.scrollTo(0, ThesisAgent.scrollTopForElement(card.getBoundingClientRect().top, window.pageYOffset || document.documentElement.scrollTop || 0));
+        return;
+      }
+      var doScroll = function () {
+        window.scrollTo(0, ThesisAgent.scrollTopForElement(el.getBoundingClientRect().top, window.pageYOffset || document.documentElement.scrollTop || 0));
+      };
+      var verifyAndRetry = function () {
+        var rect = el.getBoundingClientRect();
+        if (rect.top < -4 || rect.top > 80) doScroll();
+      };
+      if (window.requestAnimationFrame) {
+        window.requestAnimationFrame(function () {
+          window.requestAnimationFrame(function () {
+            doScroll();
+            setTimeout(verifyAndRetry, 120);
+          });
+        });
+      } else {
+        doScroll();
+        setTimeout(verifyAndRetry, 120);
+      }
+    }
     var totals = ThesisAgent.recomputeJobs(current.jobs, lastValidCap);
     current.agentTotals = totals;
     var head = document.createElement('h3');
@@ -158,8 +236,13 @@
     intro.className = 'muted';
     intro.textContent = 'Demo quotes are fixed illustrative values in job order (8, 12, 10, 18, 9 demo units), not prices from any real agent. Demo checkers are named demo checkers, not accounts. No demo units are real money.';
     jobList.appendChild(intro);
+    var tracks = document.createElement('p');
+    tracks.className = 'muted';
+    tracks.textContent = 'Claim decisions and job work states are separate tracks. Marking a claim Supported records your evidence decision for that part. Job work state records submission, evaluation, correction, readiness, and recommendation for checker work. Progress above counts claim decisions only; this job board counts work states.';
+    jobList.appendChild(tracks);
     current.jobs.forEach(function (job) {
       var div = document.createElement('div');
+      div.id = 'jobcard-' + job.jobId;
       div.className = 'card jobcard' + (job.capStatus === 'Blocked by cap' ? ' blocked' : '') + (job.cut ? ' cut' : '');
       var h = document.createElement('h4');
       h.textContent = 'Job ' + job.jobId + ' — claim ' + job.claimId + ' (' + job.role + ')';
@@ -169,24 +252,261 @@
       var lines = [
         'Job: ' + (claim ? claim.text : job.role),
         'Demo checker: ' + job.checker + ' (demo only, not an account)',
+        'Skills needed: ' + (job.skills ? job.skills.join(', ') : 'not set'),
+        'Planning decision (separate from work submission): ' + (job.planningDecision || job.decision) + ' — ' + (job.planningReason || job.reason),
+        'Work state: ' + (job.workState || 'assigned') + ' (marking a claim decided does NOT submit work; use Submit work for checking below)',
+        'Correction round: ' + (job.correctionRound || 0) + ' of 2. Last history: ' + (job.history && job.history.length ? (job.history[job.history.length - 1].from + ' -> ' + job.history[job.history.length - 1].to + ': ' + job.history[job.history.length - 1].reason) : 'none'),
         'Do vs buy: ' + job.doVsBuy + ' — ' + job.reason,
         'Planned: ' + job.planned + ' demo units. Demo quote: ' + job.quote + ' demo units.',
         'Counter-offer: ' + (job.counter ? ('one counter-offer at ' + job.counter.offer + ' demo units, ' + (job.counter.accepted ? 'accepted' : 'rejected')) : 'no counter-offer (demo quote was at or below plan)'),
         'Decision: ' + job.decision + '. Final demo price: ' + job.finalPrice + ' demo units.',
+        'Task status: ' + (job.abandoned ? 'Abandoned by user' : job.cut ? 'Cut by user' : 'Active') + '.',
+        'Claim status: ' + (claim ? claim.status : 'unknown') + '. Payment recommendation is about paying the checker for the checking work, not about the claim being true.',
+        'Human evidence confirmation: ' + (job.humanEvidenceConfirmation ? 'confirmed (I have opened and reviewed this evidence, and it supports the claim.)' : 'not confirmed. No Approve recommendation can be given without it, for document-only and URL evidence alike.'),
         'Cap: ' + job.capStatus + '. Demo units spent on this job: ' + job.spent + '.'
       ];
       lines.forEach(function (line) { var p = document.createElement('p'); p.textContent = line; div.appendChild(p); });
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'secondary';
-      btn.textContent = job.cut ? 'Restore this job' : 'Cut this job';
-      btn.addEventListener('click', function () {
-        job.cut = !job.cut;
-        renderJobs();
-        updateBudgetText();
-        savePlan();
+      if (job.workState === 'escalated') {
+        var banner = document.createElement('p');
+        banner.textContent = ThesisAgent.escalationMessage(job);
+        div.appendChild(banner);
+      }
+      if (job.previouslyEscalated && job.workState !== 'escalated') {
+        var prevEsc = document.createElement('p');
+        prevEsc.textContent = 'Previously escalated. Correction round stays at 2. A further unsuccessful correction request will escalate again.';
+        div.appendChild(prevEsc);
+      }
+      if (job.evaluation) {
+        var ev = document.createElement('p');
+        ev.textContent = 'Rule-based evaluator verdict: ' + job.evaluation.verdict + ' (source: ' + job.evaluation.source + ', not an AI or intelligent fact-checker). ' + job.evaluation.summary;
+        div.appendChild(ev);
+        if (job.evaluation.verdict === 'pass') { var pw = document.createElement('p'); pw.textContent = 'WARNING: A Pass here is rule-based consistency only. It does not prove the claim is true, and a reachable link does not prove its contents support the claim, because the system does not read source content. A human must open and review the evidence, and confirm it below, before any Approve recommendation.'; div.appendChild(pw); }
+        job.evaluation.reasons.forEach(function (r) { var rp = document.createElement('p'); rp.className = 'muted'; rp.textContent = 'Reason: ' + r; div.appendChild(rp); });
+        job.evaluation.checks.forEach(function (ck) { var cp = document.createElement('p'); cp.className = 'muted'; cp.textContent = 'Check ' + ck.name + ' (' + ck.dimension + '): ' + ck.result + ' — ' + ck.finding; div.appendChild(cp); });
+        if (job.evaluation.needsHumanReview) { var hp = document.createElement('p'); hp.textContent = 'Needs human review before any further decision.'; div.appendChild(hp); }
+      }
+      // Next step summary (UI item 12): only applicable buttons are
+      // shown, grouped by stage. Workflow and transition guards are
+      // unchanged; hiding a button does not grant a transition.
+      var nextStep = 'Next step: ';
+      if (job.workState === 'assigned') nextStep += 'Submit work for checking';
+      else if (job.workState === 'submitted' || job.workState === 'resubmitted') nextStep += 'Evaluate work';
+      else if (job.workState === 'correction-requested') nextStep += 'Edit the note yourself, then resubmit work';
+      else if (job.workState === 'checked' && job.evaluation && (job.evaluation.verdict === 'hold' || job.evaluation.verdict === 'reject')) nextStep += 'Request correction';
+      else if (job.workState === 'checked' && job.evaluation && job.evaluation.verdict === 'pass' && !job.humanEvidenceConfirmation) nextStep += 'Confirm you opened and reviewed the evidence';
+      else if (job.workState === 'checked' && job.evaluation && job.evaluation.verdict === 'pass') nextStep += 'Mark ready';
+      else if (job.workState === 'ready' && !job.humanEvidenceConfirmation) nextStep += 'Confirm you opened and reviewed the evidence, then get payment recommendation';
+      else if (job.workState === 'ready') nextStep += 'Get payment recommendation';
+      else if (job.workState === 'escalated') nextStep += 'Human review only, no automatic action. See the escalation banner above, then restart if you have corrected evidence.';
+      else nextStep += 'Get payment recommendation';
+      var ns = document.createElement('p'); ns.textContent = nextStep; div.appendChild(ns);
+      function sectionLabel(text) { var sp = document.createElement('p'); sp.className = 'muted'; sp.textContent = text; div.appendChild(sp); }
+      sectionLabel('Submit and evaluate');
+      // L3: a flagged ready job has no outgoing transition, so
+      // without this button it could never be re-evaluated in the
+      // UI and the check -> evaluate -> recalculate chain could
+      // never complete. The button only appears for flagged jobs.
+      if (job.needsFreshEvaluationAfterSnapshot && job.workState === 'ready') {
+        var reevalBtn = document.createElement('button');
+        reevalBtn.type = 'button'; reevalBtn.className = 'secondary'; reevalBtn.textContent = 'Re-evaluate after saved snapshot';
+        reevalBtn.addEventListener('click', function () {
+          var res = ThesisAgent.restartJobForFreshEvaluation(job);
+          if (!res.ok) { showJobError(div, res.error); return; }
+          renderJobs(); updateBudgetText(); savePlan();
+        });
+        div.appendChild(reevalBtn);
+      }
+      if (job.workState === 'assigned') {
+        var submitBtn = document.createElement('button');
+        submitBtn.type = 'button'; submitBtn.className = 'secondary'; submitBtn.textContent = 'Submit work for checking';
+        submitBtn.addEventListener('click', function () {
+          var res = ThesisAgent.transitionJob(job, 'submitted', 'User submitted work for checking (explicit submit action, not a claim status change)');
+          if (!res.ok) { showJobError(div, res.error); return; }
+          renderJobs(); updateBudgetText(); savePlan();
+        });
+        div.appendChild(submitBtn);
+      }
+      if (job.workState === 'submitted' || job.workState === 'resubmitted') {
+        var evalBtn = document.createElement('button');
+        evalBtn.type = 'button'; evalBtn.className = 'secondary'; evalBtn.textContent = 'Evaluate work (rule-based evaluator)';
+        evalBtn.addEventListener('click', function () {
+          var res = ThesisAgent.evaluateJob(job, claim, claim.evidenceVerification || null, current.claims.map(function (c) { return c.text; }));
+          if (!res.ok) { showJobError(div, res.error); return; }
+          renderJobs(); updateBudgetText(); savePlan();
+        });
+        div.appendChild(evalBtn);
+      }
+      if (job.correctionRequest) {
+        var cr = document.createElement('p');
+        cr.textContent = 'Correction requested, round ' + job.correctionRequest.round + ' (rule-based consistency check, not a verification that evidence is truthful). ' + job.correctionRequest.summary;
+        div.appendChild(cr);
+        job.correctionRequest.instructions.forEach(function (ins) { var ip = document.createElement('p'); ip.className = 'muted'; ip.textContent = 'Correction: ' + ins; div.appendChild(ip); });
+      }
+      if (job.evaluationHistory && job.evaluationHistory.length) {
+        job.evaluationHistory.forEach(function (pe) {
+          var pp = document.createElement('p'); pp.className = 'muted';
+          pp.textContent = 'Previous evaluation (correction round ' + pe.round + '): ' + pe.verdict + ' — ' + pe.summary + ' (kept in history, separate from the current evaluation)';
+          div.appendChild(pp);
+        });
+      }
+      sectionLabel('Correction and readiness');
+      if (job.workState === 'checked' && job.evaluation && (job.evaluation.verdict === 'hold' || job.evaluation.verdict === 'reject')) {
+        if ((job.correctionRound || 0) >= 2) {
+          var warn = document.createElement('p');
+          warn.textContent = 'Warning: this is the third correction request. Two rounds are already used, so this click will escalate the job for human review, not create a third correction.';
+          div.appendChild(warn);
+        }
+        var corrBtn = document.createElement('button');
+        corrBtn.type = 'button'; corrBtn.className = 'secondary'; corrBtn.textContent = (job.correctionRound || 0) >= 2 ? 'Escalate for human review (2 rounds used)' : 'Request correction';
+        corrBtn.addEventListener('click', function () {
+          var res = ThesisAgent.requestCorrection(job, job.evaluation);
+          if (!res.ok) { showJobError(div, res.error); return; }
+          renderJobs(); updateBudgetText(); savePlan();
+        });
+        div.appendChild(corrBtn);
+      }
+      if (job.workState === 'escalated') {
+        sectionLabel('Escalation');
+        var restartBtn = document.createElement('button');
+        restartBtn.type = 'button'; restartBtn.className = 'secondary'; restartBtn.textContent = 'Restart this job (human-reviewed restart, correction round stays at 2)';
+        restartBtn.addEventListener('click', function () {
+          var res = ThesisAgent.restartEscalatedJob(job);
+          if (!res.ok) { showJobError(div, res.error); return; }
+          renderJobs(); updateBudgetText(); savePlan();
+        });
+        div.appendChild(restartBtn);
+      }
+      if (job.workState === 'correction-requested') {
+        var resubmitBtn = document.createElement('button');
+        resubmitBtn.type = 'button'; resubmitBtn.className = 'secondary'; resubmitBtn.textContent = 'Resubmit work (after you edit the note yourself)';
+        resubmitBtn.addEventListener('click', function () {
+          var res = ThesisAgent.transitionJob(job, 'resubmitted', 'User resubmitted corrected work (user edited the note, system did not change it)');
+          if (!res.ok) { showJobError(div, res.error); return; }
+          renderJobs(); updateBudgetText(); savePlan();
+        });
+        div.appendChild(resubmitBtn);
+      }
+      if (job.workState === 'checked' && job.evaluation && job.evaluation.verdict === 'pass') {
+        var readyBtn = document.createElement('button');
+        readyBtn.type = 'button'; readyBtn.className = 'secondary'; readyBtn.textContent = 'Mark ready (only for a fresh pass evaluation)';
+        readyBtn.addEventListener('click', function () {
+          var res = ThesisAgent.markReady(job, claim);
+          if (!res.ok) { showJobError(div, res.error); return; }
+          renderJobs(); updateBudgetText(); savePlan();
+        });
+        div.appendChild(readyBtn);
+      }
+      sectionLabel('Human evidence confirmation');
+      if (job.workState === 'checked' && job.evaluation && job.evaluation.verdict === 'hold') {
+        sectionLabel('Human review of this HOLD (record only, does not approve payment)');
+        if (job.humanReview) {
+          var hr = document.createElement('p');
+          hr.textContent = 'Human review recorded: ' + job.humanReview.note + '. This does not change the HOLD verdict and does not authorise payment.';
+          div.appendChild(hr);
+        }
+        var hrLabel = document.createElement('label');
+        hrLabel.setAttribute('for', 'holdReview-' + job.jobId);
+        hrLabel.textContent = 'Human review note for this HOLD job (record only, does not approve payment)';
+        div.appendChild(hrLabel);
+        var hrInput = document.createElement('input');
+        hrInput.type = 'text'; hrInput.id = 'holdReview-' + job.jobId; hrInput.placeholder = 'Short review note (500 characters or fewer)';
+        hrInput.setAttribute('aria-label', 'Human review note for this HOLD job');
+        // QA D10: preserve a half-typed draft across re-renders, which
+        // rebuild the whole job list on every note keystroke.
+        hrInput.value = job.humanReviewDraft || '';
+        hrInput.addEventListener('input', function () { job.humanReviewDraft = hrInput.value; });
+        div.appendChild(hrInput);
+        var hrBtn = document.createElement('button');
+        hrBtn.type = 'button'; hrBtn.className = 'secondary'; hrBtn.textContent = 'Record human review of this HOLD (does not approve payment)';
+        hrBtn.addEventListener('click', function () {
+          var res = ThesisAgent.recordHumanReview(job, hrInput.value);
+          if (!res.ok) { showJobError(div, res.error); return; }
+          job.humanReviewDraft = '';
+          renderJobs(); updateBudgetText(); savePlan();
+        });
+        div.appendChild(hrBtn);
+      }
+      if (claim && claim.status === 'Not supported by evidence' && (job.workState === 'checked' || job.workState === 'ready') && job.evaluation && job.evaluation.verdict === 'pass' && !job.humanEvidenceConfirmation) {
+        var blockedConfirm = document.createElement('p');
+        blockedConfirm.textContent = 'Confirmation is not available while this claim is marked Not supported, because the confirmation wording says the evidence supports the claim.';
+        div.appendChild(blockedConfirm);
+      }
+      if ((job.workState === 'checked' || job.workState === 'ready') && job.evaluation && job.evaluation.verdict === 'pass' && !job.humanEvidenceConfirmation && !(claim && claim.status === 'Not supported by evidence')) {
+        var confirmBtn = document.createElement('button');
+        confirmBtn.type = 'button'; confirmBtn.className = 'secondary'; confirmBtn.textContent = 'I have opened and reviewed this evidence, and it supports the claim.';
+        confirmBtn.addEventListener('click', function () {
+          var res = ThesisAgent.confirmHumanEvidence(job);
+          if (!res.ok) { showJobError(div, res.error); return; }
+          renderJobs(); updateBudgetText(); savePlan();
+        });
+        div.appendChild(confirmBtn);
+      }
+      if (job.humanEvidenceConfirmation) {
+        var clearBtn = document.createElement('button');
+        clearBtn.type = 'button'; clearBtn.className = 'secondary'; clearBtn.textContent = 'Clear evidence confirmation';
+        clearBtn.addEventListener('click', function () {
+          ThesisAgent.clearHumanEvidenceConfirmation(job);
+          renderJobs(); updateBudgetText(); savePlan();
+        });
+        div.appendChild(clearBtn);
+        if (claim && claim.status === 'Not supported by evidence') {
+          var conflict = document.createElement('p');
+          conflict.textContent = 'Warning: this confirmation was given before the claim was marked Not supported. It no longer supports an Approve recommendation; recalculate the recommendation, which will Hold.';
+          div.appendChild(conflict);
+        }
+      }
+      if (job.recommendation) {
+        var freshCheck = ThesisAgent.isRecommendationFresh(job, claim, job.recommendation, lastValidCap);
+        var recHead = document.createElement('h4');
+        // M2 fix: the scroll target is a real result heading, not
+        // the long result paragraph itself, so the user lands on
+        // the heading and the beginning of its content.
+        recHead.id = 'recommendation-' + job.jobId;
+        recHead.textContent = 'Payment recommendation result';
+        div.appendChild(recHead);
+        var rec = document.createElement('p');
+        if (freshCheck.fresh) {
+          rec.textContent = 'Payment recommendation (CURRENT, inputs unchanged since calculation): ' + job.recommendation.recommendation + ' — ' + job.recommendation.summary + ' ' + job.recommendation.disclaimer + ' This recommendation does not authorise, gate, or trigger any blockchain release.';
+        } else {
+          rec.textContent = 'OUTDATED PAYMENT RECOMMENDATION — NOT VALID. Inputs changed since it was made: ' + freshCheck.staleReasons.join(' ') + ' Recalculate it before any decision. The old recommendation below is kept only as history, not as a current recommendation.';
+        }
+        div.appendChild(rec);
+        job.recommendation.reasons.forEach(function (r) { var rp = document.createElement('p'); rp.className = 'muted'; rp.textContent = 'Recommendation reason: ' + r; div.appendChild(rp); });
+        job.recommendation.checks.forEach(function (ck) { var cp = document.createElement('p'); cp.className = 'muted'; cp.textContent = 'Supporting check ' + ck.name + ' (' + ck.dimension + '): ' + ck.result + ' — ' + ck.finding; div.appendChild(cp); });
+        var hp = document.createElement('p'); hp.className = 'muted'; hp.textContent = 'Job history: ' + job.recommendation.history.map(function (h) { return (h.from || 'start') + ' -> ' + h.to; }).join(', ') + '.';
+        div.appendChild(hp);
+      }
+      sectionLabel('Payment recommendation');
+      var recBtn = document.createElement('button');
+      recBtn.type = 'button'; recBtn.className = 'primary'; recBtn.textContent = job.workState === 'escalated' ? 'Get payment recommendation (will Hold while escalated)' : 'Get payment recommendation';
+      recBtn.addEventListener('click', function () {
+        job.recommendation = ThesisAgent.recommendJob(job, claim, lastValidCap);
+        renderJobs(); updateBudgetText(); savePlan();
+        // M2 fix: scroll via the helper, after render, never to
+        // the top of the job card. The helper falls back to the
+        // card only if the result heading is missing.
+        scrollRecommendationIntoView(job.jobId);
       });
-      div.appendChild(btn);
+      div.appendChild(recBtn);
+      sectionLabel('Cut and abandon');
+      var cutBtn = document.createElement('button');
+      cutBtn.type = 'button'; cutBtn.className = 'secondary'; cutBtn.textContent = job.cut ? 'Restore this job' : 'Cut this job';
+      cutBtn.addEventListener('click', function () {
+        job.cut = !job.cut;
+        job.history = job.history || [];
+        job.history.push({ from: job.workState, to: job.workState, reason: job.cut ? 'Job cut by user' : 'Job restored by user', source: 'user' });
+        renderJobs(); updateBudgetText(); savePlan();
+      });
+      div.appendChild(cutBtn);
+      var abandonBtn = document.createElement('button');
+      abandonBtn.type = 'button'; abandonBtn.className = 'secondary'; abandonBtn.textContent = job.abandoned ? 'Restore abandoned job' : 'Abandon this job';
+      abandonBtn.addEventListener('click', function () {
+        job.abandoned = !job.abandoned;
+        job.history = job.history || [];
+        job.history.push({ from: job.workState, to: job.workState, reason: job.abandoned ? 'Job abandoned by user' : 'Abandoned job restored by user', source: 'user' });
+        renderJobs(); updateBudgetText(); savePlan();
+      });
+      div.appendChild(abandonBtn);
       jobList.appendChild(div);
     });
     var totalP = document.createElement('p');
@@ -254,7 +574,8 @@
         c.evidenceCheck && c.evidenceCheck.passed;
     }).length;
     var inconclusive = current.claims.filter(function (c) { return c.status === 'Inconclusive'; }).length;
-    var pct = Math.round(decided / current.claims.length * 100);
+    // QA D6: with no parts left, decided / 0 is NaN. Report 0 percent.
+    var pct = current.claims.length ? Math.round(decided / current.claims.length * 100) : 0;
     progressBar.style.width = pct + '%';
     if (progressWrap) {
       progressWrap.setAttribute('aria-valuenow', String(pct));
@@ -272,6 +593,13 @@
   }
 
   function render() {
+    // QA D6: recompute the summary from the current claim list on
+    // every render, so deleting a part cannot leave a stale count.
+    if (current.claims.length) {
+      current.summary = 'This thesis breaks into ' + current.claims.length + ' checkable parts. None of them is marked true or false yet. Add evidence for each part, then mark it yourself.' + (current.cappedWarning ? ' ' + current.cappedWarning : '');
+    } else {
+      current.summary = 'No checkable parts remain. Break down a new thesis.';
+    }
     summaryEl.textContent = current.summary;
     claimsEl.innerHTML = '';
     current.claims.forEach(function (c) {
@@ -288,6 +616,8 @@
         '<label for="' + noteId + '">Evidence note (must name a source, give a date, and give a link or document name)</label>' +
         '<input type="text" id="' + noteId + '" placeholder="Example: sales ledger (sales-ledger-march-2026.pdf), March 2026">' +
         '<p id="gate-' + c.id + '" class="muted"></p>' +
+        '<p id="verify-' + c.id + '" class="muted"></p>' +
+        '<p><button type="button" class="secondary" id="checklink-' + c.id + '">Check link live</button></p>' +
         '<label for="' + statusId + '">Status (you decide, but a decided status needs a passing evidence note)</label>' +
         '<select id="' + statusId + '">' +
         '<option>Not yet tested</option><option>Supported by evidence</option>' +
@@ -305,9 +635,45 @@
       noteEl.value = c.note || '';
       statusEl.value = c.status;
       gateEl.textContent = gateMessageFor(c);
+      var verifyEl = document.getElementById('verify-' + c.id);
+      verifyEl.textContent = c.evidenceVerification ? ('Evidence verification: ' + ThesisAgent.evidenceVerificationText(c)) : 'Evidence verification: not checked live yet. Press "Check link live" to try the URL in the note; a document name alone can never be labelled verified.';
+      document.getElementById('checklink-' + c.id).addEventListener('click', function () {
+        var url = ThesisAgent.extractFirstUrl(c.note || '');
+        if (!url) { c.evidenceVerification = ThesisAgent.classifyEvidenceVerification(c.note || '', null); c.evidenceVerification.checkedAt = new Date().toISOString(); c.evidenceVerification.snapshot = false; verifyEl.textContent = 'Evidence verification: ' + c.evidenceVerification.label + ' — ' + c.evidenceVerification.detail; return; }
+        verifyEl.textContent = 'Evidence verification: checking ' + url + '…';
+        // QA D1: capture the URL, note, and sequence at click time.
+        // A late response for an earlier note must never label the
+        // current note verified, and a newer check supersedes it.
+        var checkedUrl = url;
+        var checkedNote = c.note;
+        c.checkSeq = (c.checkSeq || 0) + 1;
+        var checkSeq = c.checkSeq;
+        var fetchUrl = url.indexOf('http') === 0 ? url : 'https://' + url;
+        fetch(fetchUrl, { method: 'GET' }).then(function (res) {
+          if (c.checkSeq !== checkSeq || ThesisAgent.extractFirstUrl(c.note || '') !== checkedUrl) return;
+          c.evidenceVerification = ThesisAgent.classifyEvidenceVerification(checkedNote, { status: res.status, url: checkedUrl }); c.evidenceVerification.checkedAt = new Date().toISOString(); c.evidenceVerification.snapshot = false;
+          verifyEl.textContent = 'Evidence verification: ' + c.evidenceVerification.label + ' — ' + c.evidenceVerification.detail;
+          renderJobs(); savePlan();
+        }, function (err) {
+          if (c.checkSeq !== checkSeq || ThesisAgent.extractFirstUrl(c.note || '') !== checkedUrl) return;
+          c.evidenceVerification = ThesisAgent.classifyEvidenceVerification(checkedNote, { error: (err && err.message) ? err.message : 'fetch failed (often a site blocking browser requests)', url: checkedUrl }); c.evidenceVerification.checkedAt = new Date().toISOString(); c.evidenceVerification.snapshot = false;
+          verifyEl.textContent = 'Evidence verification: ' + c.evidenceVerification.label + ' — ' + c.evidenceVerification.detail;
+          renderJobs(); savePlan();
+        });
+      });
       noteEl.addEventListener('input', function (e) {
         c.note = e.target.value;
         c.evidenceCheck = ThesisAgent.checkEvidence(c.note);
+        c.evidenceVerification = null;
+        // QA D1: editing the note supersedes any in-flight link check.
+        c.checkSeq = (c.checkSeq || 0) + 1;
+        var vEl = document.getElementById('verify-' + c.id);
+        if (vEl) vEl.textContent = 'Evidence verification: not checked live yet. Press "Check link live" to try the URL in the note; a document name alone can never be labelled verified.';
+        // P0 stale evidence protection: editing a note invalidates a
+        // checked or ready job evaluation for this claim, so an old
+        // Pass cannot be reused. Correction round is preserved.
+        var invalidatedJob = null;
+        (current.jobs || []).forEach(function (j) { if (j.claimId === c.id) { var r = ThesisAgent.invalidateStaleEvaluation(j, c); if (r.invalidated) invalidatedJob = j; } });
         // A decision may not stand on a note that no longer passes.
         if ((c.status === 'Supported by evidence' || c.status === 'Not supported by evidence') && !c.evidenceCheck.passed) {
           c.status = 'Not yet tested';
@@ -317,6 +683,7 @@
         } else {
           gateEl.textContent = gateMessageFor(c);
         }
+        if (invalidatedJob) gateEl.textContent += ' Previous job evaluation invalidated; submit and evaluate again before Ready.';
         updateProgress();
         renderJobs();
         savePlan();
@@ -356,9 +723,13 @@
       });
       document.getElementById('saveedit-' + c.id).addEventListener('click', function () {
         var input = document.getElementById('editinput-' + c.id);
+        // QA D5: snapshot before the edit, so the rebuild below
+        // cannot restore a Ready state for the old text and note.
+        var preJobs = (current.jobs || []).map(function (j) { return JSON.parse(JSON.stringify(j)); });
+        var preClaims = (current.claims || []).map(function (x) { return { id: x.id, uid: x.uid, text: x.text, note: x.note || '' }; });
         var updated = ThesisAgent.updateClaimText(c, input.value);
         if (updated.error) { gateEl.textContent = updated.error; return; }
-        rebuildJobsPreservingCuts();
+        rebuildJobsPreservingCuts(preJobs, preClaims);
         render();
         savePlan();
       });
@@ -400,6 +771,7 @@
   }
 
   document.getElementById('analyseBtn').addEventListener('click', function () {
+    planCleared = false; // QA2-08: a fresh breakdown saves normally again.
     var result = ThesisAgent.analyseThesis(thesisEl.value);
     if (result.error) { errorEl.textContent = result.error; resultsEl.hidden = true; current = null; return; }
     errorEl.textContent = '';
@@ -417,7 +789,8 @@
 
   document.getElementById('clearSavedBtn').addEventListener('click', function () {
     try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
-    document.getElementById('savedNote').textContent = 'Saved plan cleared. This plan will not be restored on refresh unless you break it down again.';
+    planCleared = true;
+    document.getElementById('savedNote').textContent = 'Saved plan cleared. Edits to this on-screen plan will not be saved again until you break a thesis down again.';
   });
 
   // Restore a saved plan on load, reapplying notes and statuses
@@ -438,16 +811,22 @@
     thesisEl.value = saved.thesis;
     var cutIds = {};
     (saved.cutClaimIds || []).forEach(function (id) { cutIds[id] = true; });
+    var abandonedIds = {};
+    (saved.abandonedClaimIds || []).forEach(function (id) { abandonedIds[id] = true; });
     // Restore the saved claim list itself (not a fresh breakdown), so
     // edits and deletes survive a refresh. Each saved claim is
     // reclassified from its own text, and a decided status is only
     // kept if its saved note still passes the evidence gate.
-    if (saved.claims && saved.claims.length) {
+    // QA2-07: an empty saved claim list is a real saved state,
+    // not a missing list. Restoring it must stay empty on reload,
+    // never fall through to re-breaking the thesis into defaults.
+    if (saved.claims && Array.isArray(saved.claims)) {
       result.claims = saved.claims.map(function (sc, i) {
         var kind = ThesisAgent.classifyClaim(sc.text);
         var details = ThesisAgent.extractDetails(sc.text);
         var claim = {
           id: i + 1,
+          uid: sc.uid || null,
           role: sc.role || 'Sub-claim',
           text: sc.text,
           kind: kind,
@@ -456,11 +835,19 @@
           passRule: 'Pass only if the evidence is named, dated, and openable. Otherwise it stays untested.',
           status: 'Not yet tested',
           note: sc.note || '',
-          evidenceCheck: null
+          evidenceCheck: null,
+          evidenceVerification: null
         };
         claim.measure = ThesisAgent.measureFor(kind, details);
         claim.evidence = ThesisAgent.evidenceFor(kind, details);
         claim.evidenceCheck = ThesisAgent.checkEvidence(claim.note);
+        // QA D9: restore a saved live-check label only if it still
+        // matches the saved note's URL and the note passes format.
+        // This is a snapshot from check time, not a fresh live check.
+        if (sc.evidenceVerification && sc.evidenceVerification.url && sc.evidenceVerification.url === ThesisAgent.extractFirstUrl(claim.note) && claim.evidenceCheck.passed) {
+          claim.evidenceVerification = sc.evidenceVerification;
+          claim.evidenceVerification.snapshot = true; // QA2-05: saved snapshot, not a fresh live check.
+        }
         if ((sc.status === 'Supported by evidence' || sc.status === 'Not supported by evidence') && claim.evidenceCheck.passed) {
           claim.status = sc.status;
         } else if (sc.status === 'Inconclusive') {
@@ -476,7 +863,26 @@
     current = result;
     current.cap = lastValidCap;
     current.jobs = ThesisAgent.buildAgentJobs(current.claims, lastValidCap).jobs;
-    current.jobs.forEach(function (j) { if (cutIds[j.claimId]) j.cut = true; });
+    current.jobs.forEach(function (j) { if (cutIds[j.claimId]) j.cut = true; if (abandonedIds[j.claimId]) j.abandoned = true; });
+    (saved.jobs || []).forEach(function (sj) {
+      current.jobs.forEach(function (j) {
+        if ((sj.claimUid && j.claimUid === sj.claimUid) || (!sj.claimUid && j.claimId === sj.claimId)) {
+          if (sj.workState && ThesisAgent.ALLOWED_TRANSITIONS) { j.workState = sj.workState; j.correctionRound = sj.correctionRound || 0; j.history = sj.history || j.history; j.evaluation = sj.evaluation || null; j.checks = sj.checks || []; j.correctionRequest = sj.correctionRequest || null; j.correctionHistory = sj.correctionHistory || []; j.evaluationHistory = sj.evaluationHistory || []; j.recommendation = sj.recommendation || null; j.humanEvidenceConfirmation = !!sj.humanEvidenceConfirmation; j.humanReview = sj.humanReview || null; j.humanReviewHistory = sj.humanReviewHistory || []; j.previouslyEscalated = !!sj.previouslyEscalated; }
+        }
+      });
+    });
+    // L3: a restored job whose verification is now a saved snapshot
+    // must not present its restored recommendation as current, and
+    // a fresh live check alone must not revive it. Flag it here;
+    // evaluateJob clears the flag only on a fresh evaluation, and
+    // the flag is recomputed from the snapshot on every load, so
+    // it does not need to be saved. Document-only claims have no
+    // verification object and are never flagged.
+    current.jobs.forEach(function (j) {
+      var jc = null;
+      current.claims.forEach(function (c) { if (c.id === j.claimId) jc = c; });
+      if (jc && jc.evidenceVerification && jc.evidenceVerification.snapshot && j.evaluation && j.recommendation) j.needsFreshEvaluationAfterSnapshot = true;
+    });
     render();
     document.getElementById('savedNote').textContent = 'Restored your saved plan from this browser (local only).';
   })();
@@ -514,6 +920,32 @@
         + 'Reason: ' + (err && err.message ? err.message : 'unknown error') + '\n'
         + 'No quote value is shown as live here, because none was received. The local dry-run object below is the fallback:\n'
         + JSON.stringify(local, null, 2);
+    });
+  });
+
+  document.getElementById('testnetProofBtn').addEventListener('click', function () {
+    var pre = document.getElementById('testnetProof');
+    pre.hidden = false;
+    pre.textContent = 'Querying NEAR testnet RPC (read-only) for v2.thesis-agent-escrow2.testnet, jobs job-v2-1 and job-v2-2…';
+    function queryJob(jobId) {
+      var args = btoa(JSON.stringify({ job_id: jobId }));
+      return fetch('https://rpc.testnet.near.org', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: '1', method: 'query', params: { request_type: 'call_function', account_id: 'v2.thesis-agent-escrow2.testnet', method_name: 'get_job', args_base64: args, finality: 'final' } })
+      }).then(function (res) {
+        if (!res.ok) throw new Error('RPC returned HTTP ' + res.status + '.');
+        return res.json();
+      }).then(function (data) {
+        if (!data || !data.result || !data.result.result) throw new Error('RPC returned no job data.');
+        var text = new TextDecoder().decode(new Uint8Array(data.result.result));
+        return jobId + ': ' + text;
+      });
+    }
+    Promise.all([queryJob('job-v2-1'), queryJob('job-v2-2')]).then(function (lines) {
+      pre.textContent = 'LIVE TESTNET PROOF — SEPARATE DEMONSTRATION (read-only, testnet only). This is not a record of the demo jobs above. Reading these records does not initiate or authorise a payment.\n\nContract: v2.thesis-agent-escrow2.testnet (escrow v2 with payer-only release control; v1 at thesis-agent-escrow2.testnet is preserved and untouched)\n' + lines.join('\n') + '\n\nAs recorded 1 Nov 2026: job-v2-1 passed true, status released; job-v2-2 passed false, status refunded, evidence null. If the actual RPC result above differs, the actual result and the explorer links prevail.\nExplorer, release: https://testnet.nearblocks.io/txns/4M6qavVKZjGjBMwKRvxp6carNTN1TZ7BXvcBLQmWxdKj\nExplorer, refund: https://testnet.nearblocks.io/txns/9MwU5X35Cot8ws47Ta2XybACXPNXi6PDv2AL7wi8P3NV';
+    }, function (err) {
+      pre.textContent = 'LIVE TESTNET PROOF UNAVAILABLE — SEPARATE DEMONSTRATION. Reading these records does not initiate or authorise a payment.\nReason: ' + (err && err.message ? err.message : 'unknown error') + '\nThe core thesis tool above still works without this panel.\nVerified explorer links (testnet only):\nRelease: https://testnet.nearblocks.io/txns/4M6qavVKZjGjBMwKRvxp6carNTN1TZ7BXvcBLQmWxdKj\nRefund: https://testnet.nearblocks.io/txns/9MwU5X35Cot8ws47Ta2XybACXPNXi6PDv2AL7wi8P3NV';
     });
   });
 
