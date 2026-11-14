@@ -1,9 +1,6 @@
 # Demo video script outline — Thesis Agent (under 3 minutes)
 
-Phase 0 note (1 Nov 2026): a demonstration video following this script
-was prepared for the builder's private review only. It has NOT been
-published to YouTube, X, or any other platform, and must not be published
-without the builder's separate approval. This outline follows one arc only:
+Phase 0 note (1 Nov 2026, updated 14 Nov 2026): a demonstration video following this script was recorded 1 Nov 2026. It exists on YouTube as Private (https://youtu.be/IvkHyNL2vGo) and was attached to an X reply; it must not be made Public without the builder's separate approval. This outline follows one arc only:
 problem in one sentence, what the user does, what the agent does, what
 the result is.
 

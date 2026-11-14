@@ -1,7 +1,7 @@
 # Thesis Agent
 
 ## Release note — 2 Nov 2026 (released 2 Nov 2026)
-This release includes the corrections and improvements documented below, made after the original submission. It has been published to the public repository and live demo. This documentation describes the released version.
+Judges score the submitted version: commit b4aeee4, submitted 1 Nov 2026 via the official API (HTTP 201). This document describes the live repository, which includes post-submission improvements made after that commit; it is published to the public repository and live demo, but it is NOT the submitted version.
 
 **NEAR HACKATHON: Build Beyond Boundaries — Agent Economy track (`agents`)**
 
@@ -164,7 +164,7 @@ No build step, no server, no install, no keys, no account needed.
   was 1.0 USDC in to about 0.9998 USDC out, time estimate 25, HTTP
   201, with no deposit address in the response. Values change with
   the market; the demo always shows the value it actually received,
-  and falls back to the local object if the call fails. Live-quote availability may vary: a direct API check on 1 Nov 2026 returned HTTP 403, so the failure fallback is expected behaviour when the live call is unavailable, not a demo defect.
+  and falls back to the local object if the call fails. Live-quote availability may vary: a direct API check on 1 Nov 2026 returned HTTP 403; a re-check on 14 Nov 2026 returned HTTP 201 (1.0 USDC in, 0.999798 USDC out), so the failure fallback remains expected behaviour when the live call is unavailable, not a demo defect.
 
 **Demo only, clearly labelled in the app and in code:**
 
@@ -247,7 +247,7 @@ stored by this demo.
 npm test
 ```
 
-Expected output: all 181 tests pass, including the README example with
+Expected output: all 189 tests pass, including the README example with
 exactly 3 claims, the breakdown failure cases (short fragments, leading
 connectors, leading and multiple "because" clauses, the 5-claim cap
 warning, and classification cases), the evidence gate (pass, each missing
@@ -310,12 +310,7 @@ encode/decode round-trip).
 - Demo post on X: **published 1 Nov 2026** as a 4-post thread by
   @Cryptogiives, with 3 screenshots of the working demo attached:
   https://x.com/Cryptogiives/status/2116831337407779257
-- Demo video: **recorded and published 1 Nov 2026** — YouTube Public
-  https://youtu.be/IvkHyNL2vGo (title "Thesis Agent — NEAR Hackathon
-  Demo", channel Reel Rush Daily) and X reply
-  https://x.com/Cryptogiives/status/2116866025144946780 (reply to the
-  demo thread, video attached). No win, payment, or live transaction
-  is claimed in the video.
+- Demo video: **recorded 1 Nov 2026** — https://youtu.be/IvkHyNL2vGo (title "Thesis Agent — NEAR Hackathon Demo", channel Reel Rush Daily) and X reply https://x.com/Cryptogiives/status/2116866025144946780 (reply to the demo thread, video attached). Status: Private as of 14 Nov 2026. Flip to Public in YouTube Studio before judging; do not re-upload — the URL must stay. No win, payment, or live transaction is claimed in the video.
 - Final submission: **saved via the official API on 1 Nov 2026
   (HTTP 201)**. The submission form itself cannot be edited after sending,
   and this repository cannot be submitted again. Updates to the repository
@@ -333,7 +328,7 @@ none was involved in this prototype.
 
 ## Post-submission improvements — released 2 Nov 2026, pushed to main and redeployed
 
-Work was done after the original submission, in a separate development copy, and is included in this release. The original submitted version is preserved untouched in the frozen snapshot (near-hackathon-frozen-20261101-b4aeee4) and on main. No mainnet, no real money, no paid services.
+Work was done after the original submission, in a separate development copy, and is included in this release. The original submitted version is preserved untouched as commit b4aeee4 in the repo's history. A frozen copy also exists in the workspace (near-hackathon-frozen-20261101-b4aeee4); that directory is not in the repo. Main's current state is a later commit, not the submitted version. No mainnet, no real money, no paid services.
 
 ### Phase 1 — Three-tier evidence verification (demo only)
 - A note now reports one of: Verified reachable (URL in the note returned HTTP 2xx on a live check), Format only (named, dated, openable format passes, but live check was not run, failed, or returned non-2xx, or the note has only a document name), or Failed (format fails).
@@ -345,11 +340,12 @@ Work was done after the original submission, in a separate development copy, and
 - New contract account: v2.thesis-agent-escrow2.testnet, checker v2.thesis-agent-checker1.testnet, version() = "thesis-escrow-v2-hardened".
 - Escrow v2 with payer-only release control — changes over v1: release only by the payer; payer must not equal checker; price at most 1 NEAR; evidence must be a URL or a named document; release/refund status is confirmed by a callback after the transfer, restoring the prior status if the transfer fails. Failure-branch behaviour is code-reviewed only and has not been live-tested.
 - The v1 contract at thesis-agent-escrow2.testnet was NOT overwritten. Its code hash is unchanged and its job-1 remains released, job-2 refunded. V2 was funded only with testnet NEAR from the v1 testnet accounts.
-- Live v2 tests, all testnet, 1 Nov 2026: deploy nopxy8Lz3TsM6pPvdrxzHLvqyVKhckxJWeWzCk6tKq1; job-v2-1 create 7QHYLBJCnJNxokm4r9jkTEHQHsyXsN9AFtqfwhPjPBLo, evidence 929j1acfU3NEGPen9PEGvhC3r4p8KFhJoNY8fW2jiWfS, mark_passed GvQncNGESncRSLD5gMBwpZ5kvMAaEpmPyFoK2jdJ3MZB, release by checker FAILED as required, release by payer 4M6qavVKZjGjBMwKRvxp6carNTN1TZ7BXvcBLQmWxdKj, final job-v2-1 passed true, status released; job-v2-2 create F7JpdXGtFabNHkJ5HkMu4sMjpgqm8uVP5MZz11PnVK9s, invalid evidence FAILED, mark_passed without evidence FAILED, refund 9MwU5X35Cot8ws47Ta2XybACXPNXi6PDv2AL7wi8P3NV, final job-v2-2 passed false, status refunded, evidence null; self-pay create FAILED; price 1.5 NEAR create FAILED (cap 1 NEAR).
+- Live v2 tests, all testnet, 1 Nov 2026: deploy nopxy8Lz3TsM6pPvdrxzHLvqyVKhckxJWeWzCk6tKq1; job-v2-1 create 7QHYLBJCnJNxokm4r9jkTEHQHsyXsN9AFtqfwhPjPBLo, evidence 929j1acfU3NEGPen9PEGvhC3r4p8KFhJoNY8fW2jiWfS, mark_passed GvQncNGESncRSLD5gMBwpZ5kvMAaEpmPyFoK2jdJ3MZB, release by checker FAILED as required, release by payer 4M6qavVKZjGjBMwKRvxp6carNTN1TZ7BXvcBLQmWxdKj, final job-v2-1 passed true, status released; job-v2-2 create F7JpdXGtFabNHkJ5HkMu4sMjpgqm8uVP5MZz11PnVK9s, invalid evidence FAILED, mark_passed without evidence FAILED, refund 9MwU5X35Cot8ws47Ta2XybACXPNXi6PDv2AL7wi8P3NV, final job-v2-2 passed false, status refunded, evidence null; self-pay create FAILED; price 1.5 NEAR create FAILED (cap 1 NEAR). No transaction hashes were recorded for the failed attempts (release by checker, invalid evidence, mark_passed without evidence, self-pay create, price 1.5 NEAR create); they are recorded as FAILED with no hash, and no hash is claimed for them.
 - Explorer: release https://testnet.nearblocks.io/txns/4M6qavVKZjGjBMwKRvxp6carNTN1TZ7BXvcBLQmWxdKj , refund https://testnet.nearblocks.io/txns/9MwU5X35Cot8ws47Ta2XybACXPNXi6PDv2AL7wi8P3NV
 
 ### Phase 3 — Read-only live testnet proof panel (demo only)
 - A "Show live testnet escrow proof" button in the demo queries the testnet RPC, read-only, for v2 jobs job-v2-1 and job-v2-2. It signs nothing, moves no money, needs no wallet.
+- If the NEAR explorer (nearblocks) is unreachable, verify final states with the NEAR RPC directly (for example, a view_call against the escrow contract on https://rpc.testnet.near.org), or use the explorer links recorded in the proof panel. Final states for the v2 jobs were verified via RPC on 14 Nov: job-v2-1 passed true / released, job-v2-2 passed false / refunded; v1 job-1 released, job-2 refunded.
 - If the network or RPC is unavailable, the panel shows that fallback explicitly and the core thesis tool still works, with no network call in its core logic.
 - Verified live RPC read, 1 Nov 2026: job-v2-1 passed true, status released, price 0.01 testnet NEAR; job-v2-2 passed false, status refunded, evidence null.
 
@@ -386,6 +382,7 @@ This evaluator is rule-based only. It is NOT an AI and NOT an intelligent fact-c
 
 ### Verdict rules
 - Pass (rule-based checks only): format passes and no potential mismatch, missing, or inconclusive support check remains. A pass summary always states it does not prove the claim is true or adequately supported.
+- A document-only note (named source, date, document name, no URL) can Pass without any live link check. The live check is only needed to label a URL 'Verified reachable'; a URL note that is not verified as reachable holds until a human opens it.
 - Hold: any potential mismatch, missing value, ambiguous evidence, unrelated document, or inaccessible link. Every hold needs human review, with reasons naming the failing check.
 - Reject (evidence note): format check fails, so the submission as written cannot be evaluated. This is not a judgement on the claim itself.
 - Number and year checks are categorised as exact, potential-mismatch, missing, or inconclusive. A note containing both a matching number and a different number is ambiguous and holds. A matching number, date, keyword, or phrase never, on its own, establishes that a claim is true or adequately supported.
@@ -528,4 +525,6 @@ Fixes for the evidence-verification race, zero-cap export, archived history in e
 Unchanged-text edits preserve correction rounds, escalation flags, archived histories, cut and abandoned status, and planning decisions, and never reactivate cut or abandoned jobs; changed text invalidates evaluation, confirmation, checks, and open correction requests while keeping the outdated-recommendation display. Also fixed: splitting inside comma-grouped numbers and compound phrases, past-form causal verbs, restored verification shown as a saved snapshot (never as a fresh check, downgraded to format-only on re-evaluation), stacked errors, delete-all restore, clear-saved persistence, cross-format quantities, and duplicated HOLD reviews in exports. Suite: 169 tests.
 
 ## Third QA review — M1, M2, and L3 corrections — 2 Nov 2026
-M1 (unchanged claim edit): saving an edit that does not change the cleaned claim text no longer clears the note, status, verification, evaluation, confirmation, or job state; whitespace-only changes are covered; genuinely changed text still invalidates as before. M2 (recommendation visibility): the recommendation button now scrolls to a "Payment recommendation result" heading at the beginning of the result, after layout settles, with a position check and retry, and scroll anchoring disabled on the job list; it does not scroll to the top of the job card and does not try to fit the whole result into the viewport. M2 was confirmed working on Android Chrome by the user. L3 (restored snapshot verification): a restored recommendation whose verification is a saved snapshot is shown as OUTDATED; a fresh live check alone does not restore it; only a fresh evaluation after that check, followed by recalculation, restores freshness; document-only recommendations, which have no link verification, are unaffected. Suite: 181 tests. All three corrections are rule-based and demo-only, as before; no payment, wallet, or model code was added.
+M1 (unchanged claim edit): saving an edit that does not change the cleaned claim text no longer clears the note, status, verification, evaluation, confirmation, or job state; whitespace-only changes are covered; genuinely changed text still invalidates as before. M2 (recommendation visibility): the recommendation button now scrolls to a "Payment recommendation result" heading at the beginning of the result, after layout settles, with a position check and retry, and scroll anchoring disabled on the job list; it does not scroll to the top of the job card and does not try to fit the whole result into the viewport. M2 was confirmed working on Android Chrome by the user. L3 (restored snapshot verification): a restored recommendation whose verification is a saved snapshot is shown as OUTDATED; a fresh live check alone does not restore it; only a fresh evaluation after that check, followed by recalculation, restores freshness; document-only recommendations, which have no link verification, are unaffected. Suite: 189 tests. All three corrections are rule-based and demo-only, as before; no payment, wallet, or model code was added.
+
+C1 + C2 (14 Nov 2026, post-submission, not part of the submitted commit b4aeee4): C1 — the export-equality test normalises the 'Exported:' timestamp before comparing, plus a new test that the timestamp is a valid ISO timestamp (the test was flaky: 1 failure in 6 runs). C2 — question-kind ('Check') claims now judge relevance against the MAIN claim's key terms instead of the question's own words, so natural honest notes pass while irrelevant or unsupported notes still hold; correction guidance for question-kind holds now names the main claim's subject. Main-claim behaviour unchanged. 7 new C2 tests; suite 181 → 189. Verified: full suite 189/189, 5 consecutive runs; browser verification 64/64 checks on the rebuilt test bundle (mobile 390px), including all three solar-thesis jobs passing with natural notes and Approve. Both fixes are rule-based and demo-only; no payment, wallet, or model code was added.
