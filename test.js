@@ -494,6 +494,56 @@ check('stage2: every verdict includes checks, findings, reasons, and source', fu
 });
 
 
+// C2: question-kind (Check) claims judge relevance against the main
+// claim's subject, not the question's own words. A natural, honest note
+// about the subject must pass; an irrelevant or unsupported note must
+// still fail. The main claim's own keyword behaviour is unchanged.
+check('c2: falsification check passes with a natural honest note about the subject', function () {
+  var claims = ['Solar panels reduce electricity bills by 40 percent in 2025', 'What evidence would change your mind about this claim?', 'Who is affected by this claim, and in what situation?'];
+  var v = a.evaluateSubmission(claims[1], 'Lagos solar report (solar-2025.pdf), 2025, bills down 40 percent', null, claims);
+  assert.strictEqual(v.verdict, 'pass');
+  assert.strictEqual(v.claimKind, 'Check');
+});
+check('c2: scope check passes with a natural honest note about the subject', function () {
+  var claims = ['Solar panels reduce electricity bills by 40 percent in 2025', 'What evidence would change your mind about this claim?', 'Who is affected by this claim, and in what situation?'];
+  var v = a.evaluateSubmission(claims[2], 'Lagos solar report (solar-2025.pdf), 2025, bills down 40 percent', null, claims);
+  assert.strictEqual(v.verdict, 'pass');
+});
+check('c2: question-kind claim holds on an irrelevant note', function () {
+  var claims = ['Solar panels reduce electricity bills by 40 percent in 2025', 'What evidence would change your mind about this claim?', 'Who is affected by this claim, and in what situation?'];
+  var v = a.evaluateSubmission(claims[1], 'Cooking recipes (recipes-2025.pdf), 2025, tasty meals for families', null, claims);
+  assert.strictEqual(v.verdict, 'hold');
+  var k = v.checks.filter(function (c) { return c.name === 'keywords'; })[0];
+  assert.strictEqual(k.result, 'potential-mismatch');
+  assert.ok(k.finding.indexOf('main claim key terms') !== -1);
+});
+check('c2: question-kind claim holds when the note mentions only one subject term', function () {
+  var claims = ['Solar panels reduce electricity bills by 40 percent in 2025', 'What evidence would change your mind about this claim?', 'Who is affected by this claim, and in what situation?'];
+  var v = a.evaluateSubmission(claims[1], 'Visitor numbers (visitors-2025.pdf), 2025, 40 percent of shoppers visited', null, claims);
+  assert.strictEqual(v.verdict, 'hold');
+  var k = v.checks.filter(function (c) { return c.name === 'keywords'; })[0];
+  assert.strictEqual(k.result, 'inconclusive');
+});
+check('c2: correction guidance for a question-kind hold names the main claim subject', function () {
+  var claims = ['Solar panels reduce electricity bills by 40 percent in 2025', 'What evidence would change your mind about this claim?', 'Who is affected by this claim, and in what situation?'];
+  var v = a.evaluateSubmission(claims[1], 'Cooking recipes (recipes-2025.pdf), 2025, tasty meals for families', null, claims);
+  var req = a.buildCorrectionRequest(v, 0);
+  var text = req.instructions.join(' ');
+  assert.ok(text.indexOf('main claim') !== -1, 'guidance names the main claim subject');
+  assert.ok(text.indexOf('Check whether this note is for the right document') === -1, 'old misleading guidance is gone for question-kind claims');
+});
+check('c2: main-claim keyword guidance is unchanged', function () {
+  var v = a.evaluateSubmission('Solar panels reduce electricity bills by 40 percent in 2025', 'Cooking recipes (recipes-2025.pdf), 2025, tasty meals for families', null);
+  assert.strictEqual(v.verdict, 'hold');
+  var req = a.buildCorrectionRequest(v, 0);
+  assert.ok(req.instructions.join(' ').indexOf('Check whether this note is for the right document') !== -1);
+});
+check('c2: question-kind claim without claim context keeps the old behaviour', function () {
+  var v = a.evaluateSubmission('What evidence would change your mind about this claim?', 'Lagos solar report (solar-2025.pdf), 2025, bills down 40 percent', null);
+  assert.strictEqual(v.verdict, 'hold');
+});
+
+
 // Stage 3: correction loop. Specific checks only, no invented figures,
 // no automatic claim/note change, re-evaluation from scratch, history kept.
 function stage3Setup(note) {
@@ -1214,9 +1264,26 @@ check('plan9 p2: export is non-mutating and repeatable, including with a differe
   var before = JSON.stringify(t.r.jobs);
   var md1 = a.planAsMarkdown({ thesis: 'x', claims: t.r.claims, jobs: t.r.jobs, cap: 30 });
   var md2 = a.planAsMarkdown({ thesis: 'x', claims: t.r.claims, jobs: t.r.jobs, cap: 30 });
-  assert.strictEqual(md1, md2); assert.strictEqual(JSON.stringify(t.r.jobs), before);
+  // C1 fix: the export embeds a millisecond 'Exported:' timestamp, so two
+  // back-to-back exports differ on that line alone. Normalise it before
+  // comparing, instead of asserting byte equality. The timestamp itself is
+  // still validated separately (see 'c1: export timestamp is a valid ISO
+  // timestamp' below); the non-mutation assertion is unchanged.
+  var stripExported = function (md) { return md.replace(/^Exported: .*$/m, 'Exported: <timestamp>'); };
+  assert.strictEqual(stripExported(md1), stripExported(md2)); assert.strictEqual(JSON.stringify(t.r.jobs), before);
   a.planAsMarkdown({ thesis: 'x', claims: t.r.claims, jobs: t.r.jobs, cap: 5 });
   assert.strictEqual(JSON.stringify(t.r.jobs), before);
+});
+check('c1: export timestamp is a valid ISO timestamp', function () {
+  var t = p0ReadyJob('Lagos solar report (solar-2025.pdf), 2025, bills down 40 percent');
+  var md = a.planAsMarkdown({ thesis: 'x', claims: t.r.claims, jobs: t.r.jobs, cap: 30 });
+  var m = md.match(/^Exported: (.+)$/m);
+  assert.ok(m, 'export has an Exported line');
+  assert.ok(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(m[1]), 'timestamp is ISO-8601 with milliseconds: ' + m[1]);
+  assert.ok(!isNaN(Date.parse(m[1])), 'timestamp parses as a date');
+  var md2 = a.planAsMarkdown({ thesis: 'x', claims: t.r.claims, jobs: t.r.jobs, cap: 30 });
+  var m2 = md2.match(/^Exported: (.+)$/m);
+  assert.ok(m2 && !isNaN(Date.parse(m2[1])), 'a second export also carries a valid timestamp');
 });
 check('plan9 p2: cut, restore, abandon, and restore-abandoned history entries export in order', function () {
   var t = p0ReadyJob('Lagos solar report (solar-2025.pdf), 2025, bills down 40 percent');

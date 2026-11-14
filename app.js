@@ -443,8 +443,8 @@
       else if (c.name === 'years' && c.result === 'potential-mismatch') instructions.push('Years check: ' + c.finding + ' Check your source and update the note so the year it gives matches the source you are citing. Do not insert a year you have not checked in the source.');
       else if (c.name === 'years' && c.result === 'missing') instructions.push('Years check: ' + c.finding + ' Add the year from your source, if your source gives one.');
       else if (c.name === 'years') instructions.push('Years check: ' + c.finding + ' Clarify which year your source covers for this claim.');
-      else if (c.name === 'keywords' && c.result === 'potential-mismatch') instructions.push('Keywords check: ' + c.finding + ' Check whether this note is for the right document, and update it to the correct source if it is not. Do not invent a source.');
-      else if (c.name === 'keywords') instructions.push('Keywords check: ' + c.finding + ' Clarify which part of your source covers this claim.');
+      else if (c.name === 'keywords' && c.result === 'potential-mismatch') instructions.push('Keywords check: ' + c.finding + ' ' + (evaluation.claimKind === 'Check' ? 'Answer the question from your own source: the note must show it is about the subject of the main claim, not repeat the question\u2019s words. Update the note so it refers to the evidence about that subject. Do not invent a source.' : 'Check whether this note is for the right document, and update it to the correct source if it is not. Do not invent a source.'));
+      else if (c.name === 'keywords') instructions.push('Keywords check: ' + c.finding + ' ' + (evaluation.claimKind === 'Check' ? 'Clarify which part of your source answers the question, naming the subject of the main claim it covers.' : 'Clarify which part of your source covers this claim.'));
       else if (c.name === 'reachability') instructions.push('Reachability check: ' + c.finding + ' Open the link yourself and confirm it opens; if it does not, replace it with a link or document name you can open.');
       else instructions.push(c.name + ' check: ' + c.finding);
     });
@@ -581,6 +581,12 @@
   }
   function evaluateSubmission(claimText, note, verificationOrFetch, allClaimTexts) {
     var claim = clean(claimText); var noteText = clean(note || '');
+    // C2: a question-kind claim (kind 'Check', e.g. a Falsification or
+    // Scope check) is a question, not a statement. Its own key terms are
+    // the question's words, so judging the note against them could never
+    // pass with honest evidence. The kind is recorded on the evaluation
+    // so correction guidance can name the right fix.
+    var claimKind = classifyClaim(claim);
     var verification = null;
     if (verificationOrFetch && verificationOrFetch.tier) verification = verificationOrFetch;
     else verification = classifyEvidenceVerification(noteText, verificationOrFetch || null);
@@ -627,13 +633,30 @@
       if (yUnmatched.length) checks.push({ name: 'years', dimension: 'support-consistency', result: 'potential-mismatch', finding: 'Claim year(s) ' + yUnmatched.join(', ') + ' do not appear in the note. Note year(s): ' + noteYears.join(', ') + '. This needs human review, it is not proof of error.' });
       else checks.push({ name: 'years', dimension: 'support-consistency', result: 'exact', finding: 'Claim year(s) ' + claimYears.join(', ') + ' appear in the note. A matching year does not prove the claim is true.' });
     }
-    // 3c. Keywords: unrelated, ambiguous, or consistent
-    var claimKeys = significantKeywords(claim); var noteLower = noteText.toLowerCase();
+    // 3c. Keywords: unrelated, ambiguous, or consistent.
+    // C2: for a question-kind claim, relevance is judged against the
+    // main (substantive) claim's key terms, not the question's own
+    // words. The note must show it is about the subject of the main
+    // claim. Without claim context (no other claim texts supplied) the
+    // question's own terms are used, as before — no behaviour change
+    // on that path. The thresholds are unchanged: 0 matched terms holds,
+    // 1 of 2+ holds as ambiguous, 2+ passes.
+    var subjectText = claim; var subjectIsMainClaim = false;
+    if (claimKind === 'Check' && allClaimTexts && allClaimTexts.length) {
+      for (var si = 0; si < allClaimTexts.length; si++) {
+        var candidate = allClaimTexts[si];
+        if (typeof candidate !== 'string') continue;
+        if (clean(candidate) === claim) continue;
+        if (classifyClaim(candidate) === 'Check') continue;
+        subjectText = candidate; subjectIsMainClaim = true; break;
+      }
+    }
+    var claimKeys = significantKeywords(subjectText); var noteLower = noteText.toLowerCase();
     var keyMatched = claimKeys.filter(function (k) { return noteLower.indexOf(k) !== -1; });
     if (!claimKeys.length) checks.push({ name: 'keywords', dimension: 'support-consistency', result: 'inconclusive', finding: 'Claim has no significant keyword to compare.' });
-    else if (!keyMatched.length) checks.push({ name: 'keywords', dimension: 'support-consistency', result: 'potential-mismatch', finding: 'Note mentions none of the claim key terms (' + claimKeys.join(', ') + '), so the note may be for an unrelated document.' });
-    else if (keyMatched.length < claimKeys.length && keyMatched.length < 2) checks.push({ name: 'keywords', dimension: 'support-consistency', result: 'inconclusive', finding: 'Note mentions only ' + keyMatched.join(', ') + ' of the claim key terms (' + claimKeys.join(', ') + '); evidence is ambiguous and needs human review.' });
-    else checks.push({ name: 'keywords', dimension: 'support-consistency', result: 'exact', finding: 'Note mentions claim key terms: ' + keyMatched.join(', ') + '. A matching keyword or phrase does not prove the claim is true or adequately supported.' });
+    else if (!keyMatched.length) checks.push({ name: 'keywords', dimension: 'support-consistency', result: 'potential-mismatch', finding: subjectIsMainClaim ? 'Note mentions none of the main claim key terms (' + claimKeys.join(', ') + '), so the note may be for evidence about a different subject.' : 'Note mentions none of the claim key terms (' + claimKeys.join(', ') + '), so the note may be for an unrelated document.' });
+    else if (keyMatched.length < claimKeys.length && keyMatched.length < 2) checks.push({ name: 'keywords', dimension: 'support-consistency', result: 'inconclusive', finding: subjectIsMainClaim ? 'Note mentions only ' + keyMatched.join(', ') + ' of the main claim key terms (' + claimKeys.join(', ') + '); evidence is ambiguous and needs human review.' : 'Note mentions only ' + keyMatched.join(', ') + ' of the claim key terms (' + claimKeys.join(', ') + '); evidence is ambiguous and needs human review.' });
+    else checks.push({ name: 'keywords', dimension: 'support-consistency', result: 'exact', finding: subjectIsMainClaim ? 'Note mentions main claim key terms: ' + keyMatched.join(', ') + '. A matching keyword or phrase does not prove the claim is true or adequately supported.' : 'Note mentions claim key terms: ' + keyMatched.join(', ') + '. A matching keyword or phrase does not prove the claim is true or adequately supported.' });
     // Duplicate check (M1): only when a claim list is supplied.
     // Normalised text comparison only; it does not judge meaning.
     if (allClaimTexts && allClaimTexts.length) {
@@ -668,6 +691,7 @@
     return {
       verdict: verdict, source: 'rule', evaluator: 'rule-based evaluator',
       checks: checks, reasons: reasons, needsHumanReview: needsHumanReview,
+      claimKind: claimKind,
       summary: verdict === 'pass' ? 'Pass (rule-based checks only). Does not prove the claim is true. Human must open and review evidence before any payment recommendation.' : verdict === 'hold' ? 'Hold for human review. Rule-based evaluator cannot confidently determine support.' : 'Reject (evidence note). Format check failed; submission not acceptable as written.',
       claimText: claim, note: noteText
     };
