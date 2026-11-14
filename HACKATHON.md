@@ -128,7 +128,7 @@ is mandatory.
   https://x.com/Cryptogiives/status/2116831337407779257
   It says the project was built at NEAR HACKATHON, tags @NEARProtocol
   and #NEARHackathon, and links this repository.
-- **Demo video:** **Recorded 1 Nov 2026** — https://youtu.be/IvkHyNL2vGo (title "Thesis Agent — NEAR Hackathon Demo", channel Reel Rush Daily) and X reply https://x.com/Cryptogiives/status/2116866025144946780 (reply to the demo thread, video attached). Status: Private as of 14 Nov 2026. Flip to Public in YouTube Studio before judging; do not re-upload — the URL must stay. See `demo-script.md` for the outline (under 3 minutes, one complete moment: type a thesis, see the plan, mark one part, download the plan). No win, payment, or live transaction is claimed in the video.
+- **Demo video:** **Recorded 1 Nov 2026** — https://youtu.be/IvkHyNL2vGo (title "Thesis Agent — NEAR Hackathon Demo", channel Reel Rush Daily) and X reply https://x.com/Cryptogiives/status/2116866025144946780 (reply to the demo thread, video attached). Status: Unlisted since 14 Nov 2026, 20:05 WAT (flipped from Private). Anyone with the link can watch it, no sign-in needed; do not re-upload — the URL must stay. See `demo-script.md` for the outline (under 3 minutes, one complete moment: type a thesis, see the plan, mark one part, download the plan). No win, payment, or live transaction is claimed in the video.
 - **Final submission:** **Saved via the official API on 1 Nov 2026
   (HTTP 201).** The submission form itself cannot be edited after
   sending, and this repository cannot be submitted again. Do not create

@@ -310,7 +310,7 @@ encode/decode round-trip).
 - Demo post on X: **published 1 Nov 2026** as a 4-post thread by
   @Cryptogiives, with 3 screenshots of the working demo attached:
   https://x.com/Cryptogiives/status/2116831337407779257
-- Demo video: **recorded 1 Nov 2026** — https://youtu.be/IvkHyNL2vGo (title "Thesis Agent — NEAR Hackathon Demo", channel Reel Rush Daily) and X reply https://x.com/Cryptogiives/status/2116866025144946780 (reply to the demo thread, video attached). Status: Private as of 14 Nov 2026. Flip to Public in YouTube Studio before judging; do not re-upload — the URL must stay. No win, payment, or live transaction is claimed in the video.
+- Demo video: **recorded 1 Nov 2026** — https://youtu.be/IvkHyNL2vGo (title "Thesis Agent — NEAR Hackathon Demo", channel Reel Rush Daily) and X reply https://x.com/Cryptogiives/status/2116866025144946780 (reply to the demo thread, video attached). Status: Unlisted since 14 Nov 2026, 20:05 WAT (flipped from Private). Anyone with the link can watch it, no sign-in needed; do not re-upload — the URL must stay. No win, payment, or live transaction is claimed in the video.
 - Final submission: **saved via the official API on 1 Nov 2026
   (HTTP 201)**. The submission form itself cannot be edited after sending,
   and this repository cannot be submitted again. Updates to the repository
